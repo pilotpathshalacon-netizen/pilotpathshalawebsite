@@ -42,8 +42,8 @@ export const AuthProvider = ({ children }) => {
     return response;
   };
 
-  const register = async (name, email, password) => {
-    const response = await apiClient.register({ name, email, password });
+  const register = async (payload) => {
+    const response = await apiClient.register(payload);
     localStorage.setItem('authToken', response.token);
     setToken(response.token);
     setUser(response.user);

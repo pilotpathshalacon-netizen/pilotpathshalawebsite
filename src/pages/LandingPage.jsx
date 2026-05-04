@@ -5,6 +5,7 @@ import {
   BadgeCheck,
   BookOpen,
   CheckCircle2,
+  Check,
   ChevronDown,
   CircleX,
   Copyright,
@@ -76,6 +77,12 @@ const trustPoints = [
   'Built to help students progress from preparation to professional aviation pathways.',
 ];
 
+const examCourseOptions = [
+  'Air Navigation - DGCA CPL Examination',
+  'Aviation Meteorology - DGCA CPL Examination',
+  'Air Regulations - DGCA CPL Examination',
+];
+
 export const LandingPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -96,7 +103,24 @@ export const LandingPage = () => {
     email: '',
     password: '',
     confirmPassword: '',
+    selectedExamCourses: [],
+    hasStartedFlyingTraining: null,
+    totalFlyingHours: '',
+    acceptedTerms: false,
   });
+
+  const normalizeDecimalInput = (value) => {
+    const cleaned = String(value || '').replace(/[^0-9.]/g, '');
+    if (!cleaned) return '';
+
+    const parts = cleaned.split('.');
+    const integerPart = parts[0] || '';
+    const fractionalPart = parts.length > 1 ? parts.slice(1).join('') : '';
+
+    if (parts.length === 1) return integerPart;
+    if (cleaned.startsWith('.')) return `0.${fractionalPart}`;
+    return `${integerPart}.${fractionalPart}`;
+  };
 
   useEffect(() => {
     const mode = searchParams.get('auth');
@@ -124,6 +148,15 @@ export const LandingPage = () => {
   const switchAuthMode = (mode) => {
     setAuthError('');
     openAuthModal(mode);
+  };
+
+  const toggleRegisterCourse = (courseTitle) => {
+    setRegisterData((prev) => ({
+      ...prev,
+      selectedExamCourses: prev.selectedExamCourses.includes(courseTitle)
+        ? prev.selectedExamCourses.filter((title) => title !== courseTitle)
+        : [...prev.selectedExamCourses, courseTitle],
+    }));
   };
 
   const handleSubmit = async (event, source = 'landing') => {
@@ -170,10 +203,46 @@ export const LandingPage = () => {
       return;
     }
 
+    if (!registerData.selectedExamCourses.length) {
+      setAuthError('Please select at least one exam course.');
+      return;
+    }
+
+    if (registerData.hasStartedFlyingTraining === null) {
+      setAuthError('Please select whether you have started flying training.');
+      return;
+    }
+
+    if (!registerData.acceptedTerms) {
+      setAuthError('Please accept the terms and conditions to continue.');
+      return;
+    }
+
+    let parsedFlyingHours = null;
+    if (registerData.hasStartedFlyingTraining) {
+      parsedFlyingHours = Number.parseFloat(String(registerData.totalFlyingHours).trim());
+      if (Number.isNaN(parsedFlyingHours)) {
+        setAuthError('Please enter total flying hours (for example, 45 or 45.5).');
+        return;
+      }
+
+      if (parsedFlyingHours < 0 || parsedFlyingHours > 20000) {
+        setAuthError('Total flying hours must be between 0 and 20,000.');
+        return;
+      }
+    }
+
     setAuthLoading(true);
 
     try {
-      await register(registerData.name, registerData.email, registerData.password);
+      await register({
+        name: registerData.name.trim(),
+        email: registerData.email.trim(),
+        password: registerData.password,
+        selectedExamCourses: registerData.selectedExamCourses,
+        hasStartedFlyingTraining: Boolean(registerData.hasStartedFlyingTraining),
+        totalFlyingHours: registerData.hasStartedFlyingTraining ? parsedFlyingHours : null,
+      });
       navigate('/dashboard');
     } catch (error) {
       setAuthError(error.message);
@@ -626,7 +695,7 @@ export const LandingPage = () => {
 
       {authMode && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4 backdrop-blur-[2px]">
-          <div className="relative w-full max-w-md rounded-[1.75rem] bg-white p-6 shadow-[0_24px_60px_rgba(0,0,0,0.22)] sm:p-8">
+          <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[1.75rem] bg-white p-6 shadow-[0_24px_60px_rgba(0,0,0,0.22)] sm:p-8">
             <button
               type="button"
               onClick={closeAuthModal}
@@ -743,6 +812,104 @@ export const LandingPage = () => {
                     placeholder="••••••••"
                   />
                 </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-primary_text">Exams Given</label>
+                  <div className="space-y-3 rounded-2xl border border-border bg-[#fafafa] p-4">
+                    {examCourseOptions.map((courseTitle) => {
+                      const selected = registerData.selectedExamCourses.includes(courseTitle);
+                      return (
+                        <button
+                          key={courseTitle}
+                          type="button"
+                          onClick={() => toggleRegisterCourse(courseTitle)}
+                          className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition ${
+                            selected
+                              ? 'border-[#ff5a0a] bg-[#fff1e8]'
+                              : 'border-[#e5e7eb] bg-white hover:border-[#ffb184]'
+                          }`}
+                        >
+                          <span className="pr-4 text-sm text-primary_text">{courseTitle}</span>
+                          <span
+                            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
+                              selected ? 'border-[#ff5a0a] bg-[#ff5a0a] text-white' : 'border-[#cbd5e1] bg-white text-transparent'
+                            }`}
+                          >
+                            <Check size={14} />
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-primary_text">Have you started flying training?</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setRegisterData((prev) => ({ ...prev, hasStartedFlyingTraining: true }))
+                      }
+                      className={`rounded-xl border px-4 py-3 text-sm font-medium transition ${
+                        registerData.hasStartedFlyingTraining === true
+                          ? 'border-[#ff5a0a] bg-[#fff1e8] text-[#d9480f]'
+                          : 'border-border bg-white text-primary_text'
+                      }`}
+                    >
+                      Yes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setRegisterData((prev) => ({
+                          ...prev,
+                          hasStartedFlyingTraining: false,
+                          totalFlyingHours: '',
+                        }))
+                      }
+                      className={`rounded-xl border px-4 py-3 text-sm font-medium transition ${
+                        registerData.hasStartedFlyingTraining === false
+                          ? 'border-[#ff5a0a] bg-[#fff1e8] text-[#d9480f]'
+                          : 'border-border bg-white text-primary_text'
+                      }`}
+                    >
+                      No
+                    </button>
+                  </div>
+                </div>
+
+                {registerData.hasStartedFlyingTraining ? (
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-primary_text">Total Flying Hours</label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={registerData.totalFlyingHours}
+                      onChange={(event) =>
+                        setRegisterData({ ...registerData, totalFlyingHours: normalizeDecimalInput(event.target.value) })
+                      }
+                      required
+                      className="w-full rounded-xl border border-border px-4 py-3 text-base focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+                      placeholder="e.g. 45.5"
+                    />
+                  </div>
+                ) : null}
+
+                <label className="flex items-start gap-3 rounded-xl border border-border px-4 py-3 text-sm text-tertiary_text">
+                  <input
+                    type="checkbox"
+                    checked={registerData.acceptedTerms}
+                    onChange={(event) => setRegisterData({ ...registerData, acceptedTerms: event.target.checked })}
+                    className="mt-1 h-4 w-4 rounded border-border text-[#ff5a0a] focus:ring-[#ff5a0a]"
+                  />
+                  <span>
+                    I agree to Pilot Pathshala{' '}
+                    <Link to="/terms-of-use" className="font-medium text-[#ff5a0a]">
+                      Terms &amp; Condition
+                    </Link>
+                  </span>
+                </label>
 
                 <button
                   type="submit"
