@@ -49,7 +49,7 @@ function App() {
 
   return (
     <Router>
-      {/* <div className="fixed inset-0 z-[999] bg-black/70 flex items-center justify-center p-6">
+      <div className="fixed inset-0 z-[999] bg-black/70 flex items-center justify-center p-6">
         <div className="max-w-xl w-full bg-white rounded-[30px] border border-slate-200 p-8 shadow-2xl text-center">
           <h1 className="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">Maintenance Mode</h1>
           <p className="mt-4 text-base leading-7 text-slate-600">
@@ -59,7 +59,7 @@ function App() {
             Please check back soon
           </div>
         </div>
-      </div> */}
+      </div>
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={token ? <Navigate to="/dashboard" /> : <LandingPage />} />
