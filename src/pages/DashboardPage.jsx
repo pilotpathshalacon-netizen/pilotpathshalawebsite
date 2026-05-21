@@ -247,9 +247,11 @@ export const DashboardPage = () => {
                           onClick={() => handleStartProgram(program)}
                           disabled={enrollingProgramId === program.id}
                           className={`px-6 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors ${
-                            Number(program.priceAmount || 0) > 0 && !program.isPurchased
+                            enrollingProgramId === program.id
                               ? 'bg-gray-200 text-gray-600 cursor-not-allowed'
-                              : 'bg-primary-900 text-white hover:bg-primary-900/90'
+                              : Number(program.priceAmount || 0) > 0 && !program.isPurchased
+                                ? 'bg-primary-900 text-white hover:bg-primary-900/90 cursor-pointer'
+                                : 'bg-primary-900 text-white hover:bg-primary-900/90 cursor-pointer'
                           } disabled:opacity-50`}
                         >
                           {enrollingProgramId === program.id

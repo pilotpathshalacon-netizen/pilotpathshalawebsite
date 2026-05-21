@@ -159,6 +159,15 @@ export const TestsPage = () => {
   const canGoPrev = history.length > 0 && (historyCursor > 0 || historyCursor === -1);
   const isCurrentFlagged = content ? flaggedQuestionIds.includes(content.id) : false;
   const showTestList = !selectedTestSubject && !showResults;
+
+  const completedTests = availableTests.filter(
+    (test) => Number(test.total || 0) > 0 && Number(test.attempted || 0) >= Number(test.total || 0)
+  );
+  const pendingTests = availableTests.filter(
+    (test) => Number(test.total || 0) > 0 && Number(test.attempted || 0) < Number(test.total || 0)
+  );
+  const hasAnyTestContent = availableTests.some((test) => Number(test.total || 0) > 0);
+
   const isLastQuestion =
     Boolean(content) &&
     !completed &&
@@ -501,38 +510,81 @@ export const TestsPage = () => {
               </button>
             </div>
 
-            <div className="space-y-3">
-              {(availableTests.length ? availableTests : [{ subject: 'No tests available yet', total: 0, attempted: 0, correct: 0 }]).map((test) => {
-                const total = Number(test.total || 0);
-                const attempted = Number(test.attempted || 0);
-                const correct = Number(test.correct || 0);
-                const accuracy = attempted ? Math.round((correct / attempted) * 100) : 0;
-                const progress = total ? Math.min(100, Math.round((attempted / total) * 100)) : 0;
-                const isEmpty = !total || test.subject === 'No tests available yet';
+            {!hasAnyTestContent ? (
+              <div className="rounded-2xl border border-[#cfd3da] bg-[#f8f9fb] p-8 text-center text-sm font-semibold text-tertiary_text">
+                No tests available yet.
+              </div>
+            ) : (
+              <>
+                {pendingTests.length ? (
+                  <div className="space-y-3">
+                    <div className="text-sm font-semibold text-primary_text">Pending Tests</div>
+                    {pendingTests.map((test) => {
+                      const total = Number(test.total || 0);
+                      const attempted = Number(test.attempted || 0);
+                      const correct = Number(test.correct || 0);
+                      const accuracy = attempted ? Math.round((correct / attempted) * 100) : 0;
+                      const progress = total ? Math.min(100, Math.round((attempted / total) * 100)) : 0;
 
-                return (
-                  <button
-                    key={test.subject}
-                    onClick={() => (isEmpty ? null : startOrContinueTest(test.subject))}
-                    disabled={isEmpty}
-                    className={`w-full rounded-2xl border bg-[#f8f9fb] p-5 text-left ${isEmpty ? 'cursor-default opacity-60' : 'hover:border-[#e9b400]'} border-[#cfd3da]`}
-                  >
-                    <div className="flex items-center justify-between gap-4">
-                      <p className="text-lg font-extrabold text-primary_text">{test.subject}</p>
-                      <span className="rounded-full border border-[#e9b400] bg-[#fff7db] px-3 py-1 text-xs font-extrabold text-primary_text">
-                        {attempted ? (attempted < total ? 'Continue' : 'Review') : 'Start'}
-                      </span>
-                    </div>
-                    <p className="mt-3 text-sm font-semibold text-tertiary_text">
-                      {total} questions • {attempted}/{total} attempted • {accuracy}% accuracy
-                    </p>
-                    <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#e6e9ef]">
-                      <div className="h-full rounded-full bg-[#e9b400]" style={{ width: `${progress}%` }} />
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                      return (
+                        <button
+                          key={test.subject}
+                          onClick={() => startOrContinueTest(test.subject)}
+                          className="w-full rounded-2xl border bg-[#f8f9fb] p-5 text-left hover:border-[#e9b400] border-[#cfd3da]"
+                        >
+                          <div className="flex items-center justify-between gap-4">
+                            <p className="text-lg font-extrabold text-primary_text">{test.subject}</p>
+                            <span className="rounded-full border border-[#e9b400] bg-[#fff7db] px-3 py-1 text-xs font-extrabold text-primary_text">
+                              {attempted ? 'Continue' : 'Start'}
+                            </span>
+                          </div>
+                          <p className="mt-3 text-sm font-semibold text-tertiary_text">
+                            {total} questions • {attempted}/{total} attempted • {accuracy}% accuracy
+                          </p>
+                          <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#e6e9ef]">
+                            <div className="h-full rounded-full bg-[#e9b400]" style={{ width: `${progress}%` }} />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+
+                {completedTests.length ? (
+                  <div className="mt-8 space-y-3">
+                    <div className="text-sm font-semibold text-primary_text">Completed Tests</div>
+                    {completedTests.map((test) => {
+                      const total = Number(test.total || 0);
+                      const attempted = Number(test.attempted || 0);
+                      const correct = Number(test.correct || 0);
+                      const accuracy = attempted ? Math.round((correct / attempted) * 100) : 0;
+                      const progress = total ? Math.min(100, Math.round((attempted / total) * 100)) : 0;
+
+                      return (
+                        <button
+                          key={test.subject}
+                          onClick={() => startOrContinueTest(test.subject)}
+                          className="w-full rounded-2xl border bg-[#f8f9fb] p-5 text-left hover:border-[#e9b400] border-[#cfd3da]"
+                        >
+                          <div className="flex items-center justify-between gap-4">
+                            <p className="text-lg font-extrabold text-primary_text">{test.subject}</p>
+                            <span className="rounded-full border border-[#e9b400] bg-[#fff7db] px-3 py-1 text-xs font-extrabold text-primary_text">
+                              Review
+                            </span>
+                          </div>
+                          <p className="mt-3 text-sm font-semibold text-tertiary_text">
+                            {total} questions • {attempted}/{total} attempted • {accuracy}% accuracy
+                          </p>
+                          <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#e6e9ef]">
+                            <div className="h-full rounded-full bg-[#e9b400]" style={{ width: `${progress}%` }} />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </>
+            )}
           </>
         ) : null}
 
