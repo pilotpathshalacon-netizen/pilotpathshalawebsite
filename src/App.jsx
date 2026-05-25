@@ -18,6 +18,8 @@ import { DailyReminderPage } from './pages/DailyReminderPage';
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
 import { TermsOfUsePage } from './pages/TermsOfUsePage';
 
+const WEBSITE_CONSTRUCTION_MODE = true;
+
 const PrivateRoute = ({ children }) => {
   const { token, loading } = useAuth();
 
@@ -88,18 +90,15 @@ function App() {
   return (
     <Router>
       <BrowserPrivacyShield />
-      {/* <div className="fixed inset-0 z-[999] bg-black/70 flex items-center justify-center p-6">
-        <div className="max-w-xl w-full bg-white rounded-[30px] border border-slate-200 p-8 shadow-2xl text-center">
-          <h1 className="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">Maintenance Mode</h1>
-          <p className="mt-4 text-base leading-7 text-slate-600">
-            The website is currently under maintenance. We are working on updates and will be back shortly.
+      {WEBSITE_CONSTRUCTION_MODE ? (
+        <div className="fixed inset-x-0 top-0 z-[1000] border-b border-[#e1c24f] bg-[#fff6d8] px-4 py-3 text-center shadow-sm">
+          <p className="text-sm font-semibold tracking-[0.04em] text-[#5f4700] sm:text-base">
+            Website Under Construction. Some sections may be updated or temporarily unstable.
           </p>
-          <div className="mt-8 inline-flex rounded-full bg-orange-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-500/20">
-            Please check back soon
-          </div>
         </div>
-      </div> */}
-      <Routes>
+      ) : null}
+      <div className={WEBSITE_CONSTRUCTION_MODE ? 'pt-[58px]' : ''}>
+        <Routes>
         {/* Public Routes */}
         <Route path="/" element={token ? <Navigate to="/dashboard" /> : <LandingPage />} />
         <Route path="/login" element={token ? <Navigate to="/dashboard" /> : <Navigate to="/?auth=login" replace />} />
@@ -221,7 +220,8 @@ function App() {
 
         {/* Catch all */}
         <Route path="*" element={<Navigate to={token ? "/dashboard" : "/"} />} />
-      </Routes>
+        </Routes>
+      </div>
     </Router>
   );
 }
