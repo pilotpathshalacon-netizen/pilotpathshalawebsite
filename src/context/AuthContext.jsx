@@ -21,7 +21,7 @@ export const AuthProvider = ({ children }) => {
       if (token) {
         try {
           const userData = await apiClient.me(token);
-          setUser(userData);
+          setUser(userData?.user || userData || null);
         } catch (error) {
           console.error('Failed to load user:', error);
           localStorage.removeItem('authToken');

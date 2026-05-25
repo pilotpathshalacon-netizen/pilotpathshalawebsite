@@ -34,6 +34,44 @@ const PrivateRoute = ({ children }) => {
   return token ? children : <Navigate to="/login" />;
 };
 
+const BrowserPrivacyShield = () => {
+  const [isVisible, setIsVisible] = React.useState(false);
+
+  React.useEffect(() => {
+    const updateShield = () => {
+      const windowFocused = typeof document.hasFocus === 'function' ? document.hasFocus() : true;
+      setIsVisible(document.visibilityState !== 'visible' || !windowFocused);
+    };
+
+    updateShield();
+    document.addEventListener('visibilitychange', updateShield);
+    window.addEventListener('blur', updateShield);
+    window.addEventListener('focus', updateShield);
+
+    return () => {
+      document.removeEventListener('visibilitychange', updateShield);
+      window.removeEventListener('blur', updateShield);
+      window.removeEventListener('focus', updateShield);
+    };
+  }, []);
+
+  if (!isVisible) {
+    return null;
+  }
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#0f1115] p-6 text-center text-white">
+      <div className="max-w-lg rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-md">
+        <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#e9b400]">Privacy Shield</p>
+        <h2 className="mt-4 text-3xl font-bold">Protected content hidden</h2>
+        <p className="mt-3 text-sm leading-7 text-white/75">
+          This window is inactive, so the website view is temporarily covered to reduce background visibility.
+        </p>
+      </div>
+    </div>
+  );
+};
+
 function App() {
   const { token, loading } = useAuth();
 
@@ -49,7 +87,8 @@ function App() {
 
   return (
     <Router>
-      <div className="fixed inset-0 z-[999] bg-black/70 flex items-center justify-center p-6">
+      <BrowserPrivacyShield />
+      {/* <div className="fixed inset-0 z-[999] bg-black/70 flex items-center justify-center p-6">
         <div className="max-w-xl w-full bg-white rounded-[30px] border border-slate-200 p-8 shadow-2xl text-center">
           <h1 className="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">Maintenance Mode</h1>
           <p className="mt-4 text-base leading-7 text-slate-600">
@@ -59,7 +98,7 @@ function App() {
             Please check back soon
           </div>
         </div>
-      </div>
+      </div> */}
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={token ? <Navigate to="/dashboard" /> : <LandingPage />} />

@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../api/client';
 import { Layout } from '../components/Layout';
 import { BookOpen } from 'lucide-react';
 
-const weekLabels = ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7'];
+const defaultTrendLabels = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 const yAxisLabels = ['100%', '80%', '60%', '40%', '20%', '0%'];
 const CHART_HEIGHT = 190;
 
@@ -17,6 +18,7 @@ const getPoint = (value, index, total, chartWidth) => {
 
 export const MyLearningPage = () => {
   const { token } = useAuth();
+  const navigate = useNavigate();
   const [progress, setProgress] = useState(null);
   const [enrollments, setEnrollments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -43,9 +45,14 @@ export const MyLearningPage = () => {
   }, [token]);
 
   const chartValues = useMemo(() => progress?.accuracyTrend || [0, 0, 0, 0, 0, 0, 0], [progress]);
+  const chartLabels = useMemo(
+    () => (progress?.accuracyTrendLabels?.length ? progress.accuracyTrendLabels : defaultTrendLabels),
+    [progress]
+  );
   const hasProgressData = Boolean(progress?.hasData);
   const mastery = progress?.subjectMastery || [];
   const readiness = progress?.readiness || {};
+  const hasExamTrendData = Number(readiness?.testsCount || 0) > 0;
   const chartWidth = 640;
   const points = useMemo(
     () => chartValues.map((value, index) => getPoint(value, index, chartValues.length, chartWidth)),
@@ -55,6 +62,40 @@ export const MyLearningPage = () => {
     () => points.map((point) => `${point.x},${point.y}`).join(' '),
     [points]
   );
+
+  const sortedLessons = (lessons) => {
+    if (!Array.isArray(lessons)) return [];
+    const toNumber = (value) => (Number.isFinite(Number(value)) ? Number(value) : 0);
+    const sortKey = (item) => {
+      const globalPosition = toNumber(item?.globalPosition);
+      if (globalPosition) return { group: 0, a: globalPosition, b: 0 };
+      return { group: 1, a: toNumber(item?.modulePosition), b: toNumber(item?.position) };
+    };
+
+    return [...lessons].sort((a, b) => {
+      const ka = sortKey(a);
+      const kb = sortKey(b);
+      if (ka.group !== kb.group) return ka.group - kb.group;
+      if (ka.a !== kb.a) return ka.a - kb.a;
+      return ka.b - kb.b;
+    });
+  };
+
+  const goToEnrolledCourse = (enrollment) => {
+    const courseId = enrollment?.course?.id || enrollment?.courseId;
+    if (!courseId) return;
+
+    const lessons = sortedLessons(enrollment?.course?.lessons);
+    const firstIncomplete = lessons.find((lesson) => !lesson?.isCompleted);
+    const lessonId = firstIncomplete?.id || lessons[0]?.id;
+
+    if (lessonId) {
+      navigate(`/courses/${courseId}/lessons/${lessonId}`);
+      return;
+    }
+
+    navigate(`/courses/${courseId}`);
+  };
 
   if (loading) {
     return (
@@ -76,7 +117,7 @@ export const MyLearningPage = () => {
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8 text-center mb-8">
             <p className="text-yellow-900 font-semibold mb-2">No progress data yet</p>
             <p className="text-yellow-800">
-              Attempt your first test to unlock readiness, trend, and mastery insights.
+              Attempt your first exam test to unlock readiness, trend, and mastery insights.
             </p>
           </div>
         ) : null}
@@ -87,7 +128,9 @@ export const MyLearningPage = () => {
             <div>
               <p className="text-sm text-tertiary_text mb-1">Overall Readiness</p>
               <p className="text-3xl font-bold text-primary-900">{readiness?.status || 'Not started'}</p>
-              <p className="text-sm text-tertiary_text mt-1">Based on {readiness?.attempts || 0} attempts</p>
+              <p className="text-sm text-tertiary_text mt-1">
+                Average across {readiness?.testsCount || 0} {(readiness?.testsCount || 0) === 1 ? 'test' : 'tests'}
+              </p>
             </div>
             <div className="relative flex h-32 w-32 items-center justify-center">
               <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
@@ -108,45 +151,51 @@ export const MyLearningPage = () => {
           </div>
         </div>
 
-        {/* Accuracy Trend Chart */}
-        <div className="bg-white rounded-lg border border-border p-6 mb-8">
-          <h2 className="text-xl font-bold text-primary-900 mb-6">Accuracy Trend</h2>
-          
-          <div className="overflow-x-auto">
-            <div className="flex min-w-[720px]">
-              <div className="flex h-[190px] flex-col justify-between pr-4">
-                {yAxisLabels.map((label) => (
-                  <div key={label} className="text-xs text-tertiary_text">
-                    {label}
+        {hasExamTrendData ? (
+          <div className="bg-white rounded-lg border border-border p-6 mb-8">
+            <h2 className="text-xl font-bold text-primary-900 mb-6">Test-wise Accuracy</h2>
+            
+            <div className="overflow-x-auto">
+              <div className="flex min-w-[720px]">
+                <div className="flex h-[190px] flex-col justify-between pr-4">
+                  {yAxisLabels.map((label) => (
+                    <div key={label} className="text-xs text-tertiary_text">
+                      {label}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="ml-4 flex-1">
+                  <svg preserveAspectRatio="none" viewBox={`0 0 ${chartWidth} ${CHART_HEIGHT}`} className="h-[190px] w-full">
+                    {[0, 1, 2, 3, 4, 5].map((step) => {
+                      const y = (step / 5) * CHART_HEIGHT;
+                      return <line key={`h-${step}`} x1="0" y1={y} x2={chartWidth} y2={y} stroke="#d9dde3" strokeWidth="1" />;
+                    })}
+                    {chartLabels.map((_, index) => {
+                      const x = (index / Math.max(chartLabels.length - 1, 1)) * chartWidth;
+                      return <line key={`v-${index}`} x1={x} y1="0" x2={x} y2={CHART_HEIGHT} stroke="#d9dde3" strokeWidth="1" />;
+                    })}
+                    <polyline points={linePoints} fill="none" stroke="#d9a700" strokeWidth="3" />
+                    {points.map((point, index) => (
+                      <circle key={`p-${index}`} cx={point.x} cy={point.y} r="4.5" fill="#2d3138" />
+                    ))}
+                  </svg>
+
+                  <div className="mt-3 flex justify-between text-xs text-tertiary_text">
+                    {chartLabels.map((label, index) => (
+                      <span key={`${label}-${index}`}>{label || `Test ${index + 1}`}</span>
+                    ))}
                   </div>
-                ))}
-              </div>
-
-              <div className="ml-4 flex-1">
-                <svg viewBox={`0 0 ${chartWidth} ${CHART_HEIGHT}`} className="h-[190px] w-full">
-                  {[0, 1, 2, 3, 4, 5].map((step) => {
-                    const y = (step / 5) * CHART_HEIGHT;
-                    return <line key={`h-${step}`} x1="0" y1={y} x2={chartWidth} y2={y} stroke="#d9dde3" strokeWidth="1" />;
-                  })}
-                  {weekLabels.map((_, index) => {
-                    const x = (index / (weekLabels.length - 1)) * chartWidth;
-                    return <line key={`v-${index}`} x1={x} y1="0" x2={x} y2={CHART_HEIGHT} stroke="#d9dde3" strokeWidth="1" />;
-                  })}
-                  <polyline points={linePoints} fill="none" stroke="#d9a700" strokeWidth="3" />
-                  {points.map((point, index) => (
-                    <circle key={`p-${index}`} cx={point.x} cy={point.y} r="4.5" fill="#2d3138" />
-                  ))}
-                </svg>
-
-                <div className="mt-3 flex justify-between text-xs text-tertiary_text">
-                  {weekLabels.map((label) => (
-                    <span key={label}>{label}</span>
-                  ))}
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="bg-white rounded-lg border border-border p-6 mb-8">
+            <h2 className="text-xl font-bold text-primary-900 mb-3">Test-wise Accuracy</h2>
+            <p className="text-tertiary_text">Take your first exam test to unlock this chart.</p>
+          </div>
+        )}
 
         {/* Subject Mastery */}
         {mastery.length > 0 && (
@@ -205,7 +254,11 @@ export const MyLearningPage = () => {
                       </div>
                     </div>
 
-                    <button className="w-full bg-primary-900 text-white py-2 rounded-lg hover:bg-primary-900/90 transition-colors text-sm font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => goToEnrolledCourse(enrollment)}
+                      className="w-full bg-primary-900 text-white py-2 rounded-lg hover:bg-primary-900/90 transition-colors text-sm font-semibold"
+                    >
                       Continue Learning
                     </button>
                   </div>

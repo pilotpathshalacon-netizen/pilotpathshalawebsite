@@ -13,3 +13,26 @@ body {
 html {
   scroll-behavior: smooth;
 }
+
+@keyframes video-watermark-drift {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(-10deg);
+  }
+  25% {
+    transform: translate3d(18%, 8%, 0) rotate(-7deg);
+  }
+  50% {
+    transform: translate3d(40%, 20%, 0) rotate(-11deg);
+  }
+  75% {
+    transform: translate3d(20%, 34%, 0) rotate(-8deg);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-10deg);
+  }
+}
+
+.video-watermark-live {
+  animation: video-watermark-drift 22s ease-in-out infinite;
+  will-change: transform;
+}

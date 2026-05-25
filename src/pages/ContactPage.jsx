@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Layout } from '../components/Layout';
 import { Mail, Phone, MapPin, Send } from 'lucide-react';
+import { apiClient } from '../api/client';
 
 export const ContactPage = () => {
   const [formData, setFormData] = useState({
@@ -10,6 +11,26 @@ export const ContactPage = () => {
     message: ''
   });
   const [submitted, setSubmitted] = useState(false);
+  const [contactDetails, setContactDetails] = useState({
+    contactEmail: 'support@pilotpathshala.com',
+    contactPhone: '+91 (123) 456-7890',
+    contactAddress: 'Aviation Academy, India'
+  });
+
+  useEffect(() => {
+    const loadContactDetails = async () => {
+      try {
+        const data = await apiClient.getContactDetails();
+        if (data?.contact) {
+          setContactDetails(data.contact);
+        }
+      } catch (error) {
+        console.error('Failed to load contact details:', error);
+      }
+    };
+
+    loadContactDetails();
+  }, []);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -35,7 +56,7 @@ export const ContactPage = () => {
               <Mail className="w-8 h-8 text-primary-900" />
             </div>
             <h3 className="text-lg font-bold text-primary_text mb-2">Email</h3>
-            <p className="text-secondary_text">support@pilotpathshala.com</p>
+            <p className="text-secondary_text">{contactDetails.contactEmail}</p>
           </div>
 
           {/* Phone */}
@@ -44,7 +65,7 @@ export const ContactPage = () => {
               <Phone className="w-8 h-8 text-primary-900" />
             </div>
             <h3 className="text-lg font-bold text-primary_text mb-2">Phone</h3>
-            <p className="text-secondary_text">+91 (123) 456-7890</p>
+            <p className="text-secondary_text">{contactDetails.contactPhone}</p>
           </div>
 
           {/* Address */}
@@ -53,7 +74,7 @@ export const ContactPage = () => {
               <MapPin className="w-8 h-8 text-primary-900" />
             </div>
             <h3 className="text-lg font-bold text-primary_text mb-2">Address</h3>
-            <p className="text-secondary_text">Aviation Academy, India</p>
+            <p className="text-secondary_text">{contactDetails.contactAddress}</p>
           </div>
         </div>
 

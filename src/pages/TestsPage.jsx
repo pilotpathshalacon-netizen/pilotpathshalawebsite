@@ -70,12 +70,37 @@ const DonutChart = ({ correct, incorrect, skipped }) => {
   );
 };
 
+const ExamWatermark = ({ label }) => {
+  const watermarkItems = Array.from({ length: 12 }, (_, index) => `${label} • Protected • ${index + 1}`);
+
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 z-20 overflow-hidden"
+    >
+      <div className="absolute inset-[-12%] grid grid-cols-2 gap-16 opacity-[0.14] sm:grid-cols-3">
+        {watermarkItems.map((item, index) => (
+          <div
+            key={`${item}-${index}`}
+            className="select-none text-center text-xs font-bold uppercase tracking-[0.28em] text-[#7a5d00] sm:text-sm"
+            style={{ transform: `rotate(${index % 2 === 0 ? '-24deg' : '-18deg'})` }}
+          >
+            <div className="rounded-2xl border border-[#e9b400]/30 bg-[#fff7db]/35 px-4 py-6 shadow-sm backdrop-blur-[1px]">
+              <p>{item}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 export const TestsPage = () => {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [mode, setMode] = useState('practice');
   const [availableTests, setAvailableTests] = useState([]);
   const [loadingTests, setLoadingTests] = useState(false);
-  const [selectedTestSubject, setSelectedTestSubject] = useState('');
+  const [selectedTestId, setSelectedTestId] = useState(null);
   const [questionData, setQuestionData] = useState(null);
   const [questionProgress, setQuestionProgress] = useState({ current: 1, total: 20 });
   const [examTimer, setExamTimer] = useState('01:24:34');
@@ -114,9 +139,9 @@ export const TestsPage = () => {
     }
   };
 
-  const loadQuestion = async (selectedMode = mode, subject = selectedTestSubject) => {
+  const loadQuestion = async (selectedMode = mode, testId = selectedTestId) => {
     try {
-      const data = await apiClient.getCurrentQuestion(selectedMode, token, subject);
+      const data = await apiClient.getCurrentQuestion(selectedMode, token, testId);
       setQuestionData(data?.question || null);
       setQuestionProgress(data?.progress || { current: 1, total: selectedMode === 'exam' ? 50 : 20 });
       setExamTimer(data?.examTimer || '01:24:34');
@@ -130,9 +155,9 @@ export const TestsPage = () => {
     }
   };
 
-  const loadResultSummary = async (selectedMode = mode, subject = selectedTestSubject) => {
+  const loadResultSummary = async (selectedMode = mode, testId = selectedTestId) => {
     try {
-      const data = await apiClient.getTestResultSummary(token, selectedMode, subject);
+      const data = await apiClient.getTestResultSummary(token, selectedMode, testId);
       setResultData(data);
       setShowResults(true);
     } catch (error) {
@@ -143,7 +168,7 @@ export const TestsPage = () => {
   useEffect(() => {
     if (token) {
       resetLocalState();
-      setSelectedTestSubject('');
+      setSelectedTestId(null);
       loadAvailableTests(mode);
     }
   }, [token, mode]);
@@ -158,7 +183,12 @@ export const TestsPage = () => {
   const isPracticeAnswered = mode === 'practice' && Boolean(currentEvaluation);
   const canGoPrev = history.length > 0 && (historyCursor > 0 || historyCursor === -1);
   const isCurrentFlagged = content ? flaggedQuestionIds.includes(content.id) : false;
-  const showTestList = !selectedTestSubject && !showResults;
+  const isExamLocked = mode === 'exam' && Boolean(selectedTestId) && !completed && !showResults;
+  const selectedTest = useMemo(
+    () => availableTests.find((test) => String(test.id) === String(selectedTestId)) || null,
+    [availableTests, selectedTestId]
+  );
+  const showTestList = !selectedTestId && !showResults;
 
   const completedTests = availableTests.filter(
     (test) => Number(test.total || 0) > 0 && Number(test.attempted || 0) >= Number(test.total || 0)
@@ -174,6 +204,47 @@ export const TestsPage = () => {
     !isReviewingHistory &&
     Number(questionProgress?.total || 0) > 0 &&
     Number(questionProgress?.current || 0) >= Number(questionProgress?.total || 0);
+  const examWatermarkLabel = useMemo(() => {
+    const identity = user?.email || user?.name || 'Pilot Pathshala';
+    const time = new Date().toLocaleString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    return `${identity} • ${time}`;
+  }, [user?.email, user?.name, questionProgress?.current, isExamLocked]);
+
+  const showLockedExamAlert = () => {
+    window.alert('Exam in progress. You cannot go back until you submit this exam.');
+  };
+
+  useEffect(() => {
+    if (!isExamLocked) {
+      return undefined;
+    }
+
+    window.history.pushState({ examLocked: true }, '', window.location.href);
+
+    const handleBeforeUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    const handlePopState = () => {
+      showLockedExamAlert();
+      window.history.pushState({ examLocked: true }, '', window.location.href);
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [isExamLocked]);
 
   const confirmSubmitTest = () => window.confirm('Submit this test now?');
 
@@ -194,7 +265,10 @@ export const TestsPage = () => {
     try {
       setSubmitting(true);
       setSelectedAnswers((prev) => ({ ...prev, [content.id]: optionId }));
-      const data = await apiClient.submitQuestion({ questionId: content.id, selectedOptionId: optionId }, token);
+      const data = await apiClient.submitQuestion(
+        { testId: selectedTestId, questionId: content.id, selectedOptionId: optionId },
+        token
+      );
       setEvaluations((prev) => ({ ...prev, [content.id]: data?.result || null }));
       addToHistory(content, optionId);
       setSubmitting(false);
@@ -250,11 +324,11 @@ export const TestsPage = () => {
       if (!confirmSubmitTest()) {
         return;
       }
-      await loadResultSummary('practice', selectedTestSubject);
+      await loadResultSummary('practice', selectedTestId);
       return;
     }
 
-    await loadQuestion('practice', selectedTestSubject);
+    await loadQuestion('practice', selectedTestId);
   };
 
   const submitExamAndNext = async () => {
@@ -283,13 +357,18 @@ export const TestsPage = () => {
         }
       }
       setSubmitting(true);
-      await apiClient.submitQuestion({ questionId: content.id, selectedOptionId: currentSelected }, token);
+      await apiClient.submitQuestion(
+        { testId: selectedTestId, questionId: content.id, selectedOptionId: currentSelected },
+        token
+      );
       addToHistory(content, currentSelected);
       if (isLastQuestion) {
-        await loadResultSummary('exam', selectedTestSubject);
+        setCompleted(true);
+        setQuestionData(null);
+        await loadResultSummary('exam', selectedTestId);
         return;
       }
-      await loadQuestion('exam', selectedTestSubject);
+      await loadQuestion('exam', selectedTestId);
     } catch (error) {
       setSubmitting(false);
       alert(`Unable to continue: ${error.message}`);
@@ -299,10 +378,10 @@ export const TestsPage = () => {
   const handleRetake = async () => {
     try {
       setSubmitting(true);
-      await apiClient.resetTestAttempts(mode, token, selectedTestSubject);
+      await apiClient.resetTestAttempts(mode, token, selectedTestId);
       resetLocalState();
-      setSelectedTestSubject(selectedTestSubject);
-      await loadQuestion(mode, selectedTestSubject);
+      setSelectedTestId(selectedTestId);
+      await loadQuestion(mode, selectedTestId);
       await loadAvailableTests(mode);
     } catch (error) {
       setSubmitting(false);
@@ -327,20 +406,25 @@ export const TestsPage = () => {
     return 'Next →';
   };
 
-  const startOrContinueTest = async (subject) => {
-    if (!subject) return;
+  const startOrContinueTest = async (testId) => {
+    if (!testId) return;
     resetLocalState();
-    setSelectedTestSubject(subject);
-    await loadQuestion(mode, subject);
+    setSelectedTestId(testId);
+    await loadQuestion(mode, testId);
   };
 
   const backToTests = () => {
     resetLocalState();
-    setSelectedTestSubject('');
+    setSelectedTestId(null);
     loadAvailableTests(mode);
   };
 
   const handleHeaderBack = () => {
+    if (isExamLocked) {
+      showLockedExamAlert();
+      return;
+    }
+
     if (showResults) {
       setShowResults(false);
       return;
@@ -371,8 +455,9 @@ export const TestsPage = () => {
   const focusAreas = resultData?.focusAreas || [];
 
   return (
-    <Layout>
-      <div className="mx-auto max-w-5xl p-6">
+    <Layout navigationLocked={isExamLocked} onNavigationBlocked={showLockedExamAlert}>
+      <div className="relative mx-auto max-w-5xl p-6">
+        {isExamLocked ? <ExamWatermark label={examWatermarkLabel} /> : null}
         <div className="mb-6 overflow-hidden rounded-2xl bg-[#2f2f2c] text-white">
           <div className="flex items-center gap-3 px-6 py-5">
             <button onClick={handleHeaderBack} className="rounded-full p-1 text-white/90 hover:bg-white/10">
@@ -385,7 +470,7 @@ export const TestsPage = () => {
           </div>
         </div>
 
-        {!showResults ? (
+        {!showResults && !isExamLocked ? (
           <div className="mb-6 flex rounded-xl border border-[#cfd3da] bg-[#dfe3e8] p-1">
             {['practice', 'exam'].map((value) => (
               <button
@@ -528,12 +613,15 @@ export const TestsPage = () => {
 
                       return (
                         <button
-                          key={test.subject}
-                          onClick={() => startOrContinueTest(test.subject)}
+                          key={test.id}
+                          onClick={() => startOrContinueTest(test.id)}
                           className="w-full rounded-2xl border bg-[#f8f9fb] p-5 text-left hover:border-[#e9b400] border-[#cfd3da]"
                         >
                           <div className="flex items-center justify-between gap-4">
-                            <p className="text-lg font-extrabold text-primary_text">{test.subject}</p>
+                            <div>
+                              <p className="text-lg font-extrabold text-primary_text">{test.title}</p>
+                              <p className="mt-1 text-sm font-semibold text-tertiary_text">{test.subject || 'General'}</p>
+                            </div>
                             <span className="rounded-full border border-[#e9b400] bg-[#fff7db] px-3 py-1 text-xs font-extrabold text-primary_text">
                               {attempted ? 'Continue' : 'Start'}
                             </span>
@@ -562,12 +650,15 @@ export const TestsPage = () => {
 
                       return (
                         <button
-                          key={test.subject}
-                          onClick={() => startOrContinueTest(test.subject)}
+                          key={test.id}
+                          onClick={() => startOrContinueTest(test.id)}
                           className="w-full rounded-2xl border bg-[#f8f9fb] p-5 text-left hover:border-[#e9b400] border-[#cfd3da]"
                         >
                           <div className="flex items-center justify-between gap-4">
-                            <p className="text-lg font-extrabold text-primary_text">{test.subject}</p>
+                            <div>
+                              <p className="text-lg font-extrabold text-primary_text">{test.title}</p>
+                              <p className="mt-1 text-sm font-semibold text-tertiary_text">{test.subject || 'General'}</p>
+                            </div>
                             <span className="rounded-full border border-[#e9b400] bg-[#fff7db] px-3 py-1 text-xs font-extrabold text-primary_text">
                               Review
                             </span>
@@ -604,7 +695,7 @@ export const TestsPage = () => {
 
             {mode === 'exam' && content ? (
               <div className="mb-5 inline-flex rounded bg-[#2f2f2c] px-3 py-1 text-xs font-medium text-[#f2f3f5]">
-                {selectedTestSubject || content.subject || 'Navigation & Instruments'}
+                {selectedTest?.title || selectedTest?.subject || content.subject || 'Navigation & Instruments'}
               </div>
             ) : null}
 

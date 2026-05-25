@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Bookmark, BookmarkCheck, CheckCircle2, FileText } from 'lucide-react';
+import { Bookmark, BookmarkCheck, CheckCircle2, Expand, FileText, Shrink } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../api/client';
 import { Layout } from '../components/Layout';
@@ -39,10 +39,32 @@ const toBunnyPlayerUrl = (rawUrl) => {
   return '';
 };
 
+const formatWatermarkTime = (date) =>
+  new Intl.DateTimeFormat('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  }).format(date);
+
+const VideoWatermark = ({ label }) => {
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
+      <div
+        className="video-watermark-live absolute left-[8%] top-[14%] max-w-[58%] rounded-full border border-white/10 bg-black/10 px-4 py-2 shadow-sm backdrop-blur-[1px]"
+      >
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#ffe082]/70 sm:text-xs">{label}</p>
+      </div>
+      <div className="absolute bottom-4 right-4 rounded-full border border-white/10 bg-black/12 px-3 py-1.5 shadow-sm backdrop-blur-[1px]">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/55 sm:text-xs">Pilot Pathshala</p>
+      </div>
+    </div>
+  );
+};
+
 export const LessonDetailPage = () => {
   const { courseId, lessonId } = useParams();
   const navigate = useNavigate();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [lesson, setLesson] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('Video');
@@ -52,6 +74,8 @@ export const LessonDetailPage = () => {
   const [myNotes, setMyNotes] = useState([]);
   const [saving, setSaving] = useState(false);
   const [activeVideoIndex, setActiveVideoIndex] = useState(0);
+  const [isVideoExpanded, setIsVideoExpanded] = useState(false);
+  const [watermarkTime, setWatermarkTime] = useState(() => formatWatermarkTime(new Date()));
   const videoRef = useRef(null);
 
   useEffect(() => {
@@ -81,6 +105,36 @@ export const LessonDetailPage = () => {
     }
   }, [token, courseId, lessonId]);
 
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setWatermarkTime(formatWatermarkTime(new Date()));
+    }, 60000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    if (!isVideoExpanded) {
+      return undefined;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setIsVideoExpanded(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isVideoExpanded]);
+
   const notes = useMemo(() => (Array.isArray(lesson?.notes) ? lesson.notes : []), [lesson]);
   const takeaways = useMemo(() => (Array.isArray(lesson?.takeaways) ? lesson.takeaways : []), [lesson]);
   const videos = useMemo(() => (Array.isArray(lesson?.videos) ? lesson.videos : []), [lesson]);
@@ -94,6 +148,9 @@ export const LessonDetailPage = () => {
   const normalizedVideoUrl = useMemo(() => normalizeHttpUrl(activeVideoUrl), [activeVideoUrl]);
   const isDirectStream = useMemo(() => isDirectVideoUrl(activeVideoUrl), [activeVideoUrl]);
   const hasVideo = Boolean(youtubeVideoId || bunnyPlayerUrl || normalizedVideoUrl);
+  const watermarkName = String(user?.name || 'Pilot Pathshala Student').trim();
+  const watermarkEmail = String(user?.email || 'no-email').trim();
+  const videoWatermarkLabel = `${watermarkName} • ${watermarkEmail} • ${watermarkTime}`;
 
   const lessonDisplayTitle = lesson?.lessonTitle || lesson?.title || 'Lesson';
   const lessonDisplaySubtitle = lesson?.lessonSubtitle || lesson?.moduleTitle || '';
@@ -102,6 +159,19 @@ export const LessonDetailPage = () => {
   const totalLessons = Number(lesson?.totalLessons || 0);
   const segmentPercent = totalLessons > 0 ? Math.min(100, Math.max(0, Math.round((lessonPosition / totalLessons) * 100))) : 0;
   const enrollmentProgress = Math.round(Number(lesson?.enrollmentProgress || 0));
+  const hasNextLesson = Boolean(lesson?.nextLesson?.id);
+
+  const handleGoToNextLesson = () => {
+    if (!lesson?.nextLesson?.id) {
+      return;
+    }
+
+    navigate(`/courses/${courseId}/lessons/${lesson.nextLesson.id}`);
+  };
+
+  const handleGoBackToCourse = () => {
+    navigate(`/courses/${courseId}`);
+  };
 
   const handleCompleteLesson = async () => {
     try {
@@ -120,7 +190,7 @@ export const LessonDetailPage = () => {
       }));
 
       if (lesson?.nextLesson?.id) {
-        navigate(`/courses/${courseId}/lessons/${lesson.nextLesson.id}`);
+        handleGoToNextLesson();
         return;
       }
     } catch (error) {
@@ -175,7 +245,6 @@ export const LessonDetailPage = () => {
           src={`https://www.youtube.com/embed/${youtubeVideoId}`}
           frameBorder="0"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
           className="h-full w-full"
         />
       );
@@ -183,7 +252,13 @@ export const LessonDetailPage = () => {
 
     if (isDirectStream && normalizedVideoUrl) {
       return (
-        <video ref={videoRef} controls className="h-full w-full bg-black">
+        <video
+          ref={videoRef}
+          controls
+          controlsList="nofullscreen nodownload noremoteplayback"
+          disablePictureInPicture
+          className="h-full w-full bg-black"
+        >
           <source
             src={normalizedVideoUrl}
             type={normalizedVideoUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'}
@@ -199,8 +274,7 @@ export const LessonDetailPage = () => {
           title="Lesson video"
           src={bunnyPlayerUrl}
           frameBorder="0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-          allowFullScreen
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           className="h-full w-full"
         />
       );
@@ -212,7 +286,6 @@ export const LessonDetailPage = () => {
           title="Lesson video"
           src={normalizedVideoUrl}
           frameBorder="0"
-          allowFullScreen
           className="h-full w-full"
         />
       );
@@ -331,9 +404,32 @@ export const LessonDetailPage = () => {
                   </div>
                 ) : null}
 
-                <div className="overflow-hidden rounded-2xl border border-border bg-[#111317]">
+                <div
+                  className={
+                    isVideoExpanded
+                      ? 'fixed inset-0 z-[9999] flex items-center justify-center bg-black/95 p-4 sm:p-6'
+                      : 'overflow-hidden rounded-2xl border border-border bg-[#111317]'
+                  }
+                >
                   {hasVideo ? (
-                    <div className="aspect-video w-full">{renderVideoPlayer()}</div>
+                    <div className={isVideoExpanded ? 'relative w-full max-w-[96vw]' : 'relative aspect-video w-full'}>
+                      <div className={isVideoExpanded ? 'relative aspect-video w-full overflow-hidden rounded-2xl border border-white/10 bg-[#111317]' : 'relative aspect-video w-full'}>
+                        {renderVideoPlayer()}
+                        <VideoWatermark label={videoWatermarkLabel} />
+                        <button
+                          type="button"
+                          onClick={() => setIsVideoExpanded((prev) => !prev)}
+                          className="absolute right-3 top-3 z-20 inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/55 px-3 py-2 text-xs font-semibold text-white backdrop-blur-sm transition hover:bg-black/70"
+                        >
+                          {isVideoExpanded ? <Shrink size={16} /> : <Expand size={16} />}
+                          {isVideoExpanded ? 'Exit Full View' : 'Full View'}
+                        </button>
+                      </div>
+                      {isVideoExpanded ? (
+                        <p className="mt-3 text-center text-xs font-medium text-white/65">
+                        </p>
+                      ) : null}
+                    </div>
                   ) : (
                     <div className="flex aspect-video w-full items-center justify-center text-gray-400">No video available</div>
                   )}
@@ -428,19 +524,39 @@ export const LessonDetailPage = () => {
                 <p className="text-xs text-tertiary_text">Duration: {lesson.durationMinutes} minutes</p>
               </div>
 
-              {!lesson.isCompleted ? (
+              {lesson.isCompleted ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 font-semibold text-green-700">
+                    <CheckCircle2 size={18} />
+                    Lesson completed
+                  </div>
+
+                  {hasNextLesson ? (
+                    <button
+                      type="button"
+                      onClick={handleGoToNextLesson}
+                      className="w-full rounded-lg bg-primary-900 py-3 font-semibold text-white hover:bg-primary-900/90"
+                    >
+                      Next Lesson
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleGoBackToCourse}
+                      className="w-full rounded-lg border border-border py-3 font-semibold text-primary-900 hover:bg-gray-50"
+                    >
+                      Back to Course
+                    </button>
+                  )}
+                </div>
+              ) : (
                 <button
                   onClick={handleCompleteLesson}
                   disabled={saving}
                   className="w-full rounded-lg bg-primary-900 py-3 font-semibold text-white hover:bg-primary-900/90 disabled:opacity-50"
                 >
-                  {saving ? 'Updating...' : lesson?.nextLesson?.id ? 'Continue Next Lesson' : 'Mark as Complete'}
+                  {saving ? 'Updating...' : hasNextLesson ? 'Continue Next Lesson' : 'Mark as Complete'}
                 </button>
-              ) : (
-                <div className="flex items-center gap-2 font-semibold text-green-700">
-                  <CheckCircle2 size={18} />
-                  Lesson completed
-                </div>
               )}
             </div>
 

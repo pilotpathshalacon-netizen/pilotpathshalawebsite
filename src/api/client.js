@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'https://api.pilotpathshala.com/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002/api';
 
 const buildHeaders = (token) => {
   const headers = {
@@ -56,25 +56,26 @@ export const apiClient = {
   updateFocusStrategy: (payload, token) => request({ endpoint: '/preferences/focus-strategy', method: 'PUT', body: payload, token }),
 
   getProgressOverview: (token) => request({ endpoint: '/progress/overview', token }),
+  getContactDetails: () => request({ endpoint: '/contact-details' }),
   submitEnquiry: (payload) => request({ endpoint: '/enquiries', method: 'POST', body: payload }),
 
   getTests: (token) => request({ endpoint: '/tests/available?mode=practice', token }),
   getAvailableTests: (mode, token) => request({ endpoint: `/tests/available?mode=${mode}`, token }),
-  getCurrentQuestion: (mode, token, subject) =>
+  getCurrentQuestion: (mode, token, testId) =>
     request({
-      endpoint: `/tests/current?mode=${mode}${subject ? `&subject=${encodeURIComponent(subject)}` : ''}`,
+      endpoint: `/tests/current?mode=${mode}${testId ? `&testId=${encodeURIComponent(testId)}` : ''}`,
       token
     }),
   submitQuestion: (payload, token) => request({ endpoint: '/tests/submit', method: 'POST', body: payload, token }),
-  resetTestAttempts: (mode, token, subject) =>
+  resetTestAttempts: (mode, token, testId) =>
     request({
-      endpoint: `/tests/attempts?mode=${mode}${subject ? `&subject=${encodeURIComponent(subject)}` : ''}`,
+      endpoint: `/tests/attempts?mode=${mode}${testId ? `&testId=${encodeURIComponent(testId)}` : ''}`,
       method: 'DELETE',
       token
     }),
-  getTestResultSummary: (token, mode, subject) =>
+  getTestResultSummary: (token, mode, testId) =>
     request({
-      endpoint: `/tests/result-summary?mode=${mode || 'practice'}${subject ? `&subject=${encodeURIComponent(subject)}` : ''}`,
+      endpoint: `/tests/result-summary?mode=${mode || 'practice'}${testId ? `&testId=${encodeURIComponent(testId)}` : ''}`,
       token
     }),
 

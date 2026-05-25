@@ -4,7 +4,7 @@ import { Menu, X, LogOut, Bell, Settings } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 
-export const Layout = ({ children }) => {
+export const Layout = ({ children, navigationLocked = false, onNavigationBlocked = null }) => {
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -18,8 +18,18 @@ export const Layout = ({ children }) => {
   }, [user?.id, token, loadNotifications, location.pathname]);
 
   const handleLogout = () => {
+    if (navigationLocked) {
+      onNavigationBlocked?.();
+      setSidebarOpen(false);
+      return;
+    }
     logout();
     navigate('/login');
+  };
+
+  const handleBlockedNavigation = () => {
+    onNavigationBlocked?.();
+    setSidebarOpen(false);
   };
 
   const isActive = (path) => location.pathname === path;
@@ -61,18 +71,33 @@ export const Layout = ({ children }) => {
                 return <div key={index} className="my-4 border-t border-gray-200" />;
               }
               return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => setSidebarOpen(false)}
-                  className={`block px-4 py-3 rounded-lg transition-colors ${
-                    isActive(item.path)
-                      ? 'bg-primary-900 text-white'
-                      : 'text-primary_text hover:bg-gray-100'
-                  }`}
-                >
-                  {item.label}
-                </Link>
+                navigationLocked ? (
+                  <button
+                    key={item.path}
+                    type="button"
+                    onClick={handleBlockedNavigation}
+                    className={`block w-full rounded-lg px-4 py-3 text-left transition-colors ${
+                      isActive(item.path)
+                        ? 'bg-primary-900 text-white'
+                        : 'text-primary_text opacity-60'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ) : (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setSidebarOpen(false)}
+                    className={`block px-4 py-3 rounded-lg transition-colors ${
+                      isActive(item.path)
+                        ? 'bg-primary-900 text-white'
+                        : 'text-primary_text hover:bg-gray-100'
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                )
               );
             })}
           </nav>
@@ -85,9 +110,9 @@ export const Layout = ({ children }) => {
                 <p className="text-sm text-tertiary_text truncate">{user.email}</p>
               </div>
             )}
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
             >
               <LogOut size={18} />
               Logout
@@ -102,7 +127,8 @@ export const Layout = ({ children }) => {
         <header className="bg-white border-b border-border px-6 py-4 flex items-center justify-between">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="lg:hidden p-2 hover:bg-gray-100 rounded-lg"
+            disabled={navigationLocked}
+            className="lg:hidden rounded-lg p-2 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
@@ -111,25 +137,50 @@ export const Layout = ({ children }) => {
 
           <div className="flex items-center gap-4">
             {/* Notifications */}
-            <Link
-              to="/notifications"
-              className="relative p-2 text-primary_text hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <Bell size={22} />
-              {unreadCount > 0 && (
-                <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
-            </Link>
+            {navigationLocked ? (
+              <button
+                type="button"
+                onClick={handleBlockedNavigation}
+                className="relative rounded-lg p-2 text-primary_text opacity-60"
+              >
+                <Bell size={22} />
+                {unreadCount > 0 && (
+                  <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </button>
+            ) : (
+              <Link
+                to="/notifications"
+                className="relative p-2 text-primary_text hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <Bell size={22} />
+                {unreadCount > 0 && (
+                  <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </Link>
+            )}
 
             {/* Settings */}
-            <Link
-              to="/settings"
-              className="p-2 text-primary_text hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <Settings size={22} />
-            </Link>
+            {navigationLocked ? (
+              <button
+                type="button"
+                onClick={handleBlockedNavigation}
+                className="rounded-lg p-2 text-primary_text opacity-60"
+              >
+                <Settings size={22} />
+              </button>
+            ) : (
+              <Link
+                to="/settings"
+                className="p-2 text-primary_text hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <Settings size={22} />
+              </Link>
+            )}
           </div>
         </header>
 
