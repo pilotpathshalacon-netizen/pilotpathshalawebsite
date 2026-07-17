@@ -1,14 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Check, CircleX, MessageCircle } from 'lucide-react';
+
 import logo from '../assets/pilot-pathshala-logo.png';
 import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../api/client';
 
+
 const contactTrackOptions = [
   'India Training Pathway',
   'Foreign Training Pathway',
-  'Simulator Training Only',
 ];
 
 const aboutHighlights = [
@@ -116,6 +117,9 @@ export const LandingPage = () => {
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [activeAppIndex, setActiveAppIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const carouselRef = useRef(null);
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [registerData, setRegisterData] = useState({
     name: '',
@@ -194,6 +198,25 @@ export const LandingPage = () => {
       window.removeEventListener('resize', updateProgress);
     };
   }, []);
+
+  // AUTO-PLAY EFFECT FOR MOBILE CAROUSEL
+  useEffect(() => {
+    if (isPaused) return;
+
+    const timer = setInterval(() => {
+      if (carouselRef.current && window.innerWidth < 768) {
+        const nextIndex = activeAppIndex === 0 ? 1 : 0;
+        const cardWidth = carouselRef.current.clientWidth * 0.86 + 20; // 86% width + gap
+        carouselRef.current.scrollTo({
+          left: nextIndex === 0 ? 0 : cardWidth,
+          behavior: 'smooth',
+        });
+        setActiveAppIndex(nextIndex);
+      }
+    }, 4000); // Switches every 4 seconds
+
+    return () => clearInterval(timer);
+  }, [activeAppIndex, isPaused]);
 
   const openAuthModal = (mode) => {
     const nextParams = new URLSearchParams(searchParams);
@@ -430,9 +453,25 @@ export const LandingPage = () => {
                   Start Learning
                 </button>
               </div>
-              <div className="" data-scroll-reveal>
+              
+              {/* MOBILE CAROUSEL UPDATED SECTION (AUTO-PLAY + TOUCH SUPPORT) */}
+              <div className="relative" data-scroll-reveal>
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(254,179,22,0.22),transparent_36%)]" />
-                <div className="relative grid gap-6 md:grid-cols-2">
+                <div
+                  ref={carouselRef}
+                  onTouchStart={() => setIsPaused(true)}
+                  onTouchEnd={() => setTimeout(() => setIsPaused(false), 5000)}
+                  onMouseEnter={() => setIsPaused(true)}
+                  onMouseLeave={() => setIsPaused(false)}
+                  onScroll={(e) => {
+                    const { scrollLeft, clientWidth } = e.currentTarget;
+                    const index = Math.round(scrollLeft / (clientWidth * 0.8));
+                    if (index !== activeAppIndex && index >= 0 && index <= 1) {
+                      setActiveAppIndex(index);
+                    }
+                  }}
+                  className="relative flex w-full gap-5 overflow-x-auto snap-x snap-mandatory pb-4 pt-1 scroll-smooth md:grid md:grid-cols-2 md:overflow-visible md:pb-0 md:pt-0 md:gap-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                >
                   {[
                     {
                       platform: 'iPhone',
@@ -455,7 +494,7 @@ export const LandingPage = () => {
                       screenClass: 'from-[#f8fbf7] via-[#dff5e8] to-[#feb316]/35',
                     },
                   ].map((item) => (
-                    <div key={item.platform} className="flex min-h-[30rem] flex-col justify-between rounded-[1.75rem] border border-white/10 bg-[#111a2b] p-6 text-white shadow-[0_18px_45px_rgba(0,0,0,0.22)]">
+                    <div key={item.platform} className="flex min-h-[30rem] w-[86%] sm:w-[350px] shrink-0 snap-center flex-col justify-between rounded-[1.75rem] border border-white/10 bg-[#111a2b] p-6 text-white shadow-[0_18px_45px_rgba(0,0,0,0.22)] md:w-auto md:shrink md:snap-align-none">
                       <div className={`relative mx-auto h-[21rem] w-full max-w-[12.25rem] rounded-[2.35rem] bg-[#0b1220] p-[0.65rem] shadow-[0_24px_55px_rgba(0,0,0,0.42),inset_0_0_0_1px_rgba(255,255,255,0.12)] ${item.device === 'ios' ? 'border-[5px] border-[#202938]' : 'border-[4px] border-[#151c2a]'}`}>
                         <span className="absolute -left-[0.45rem] top-[4.5rem] h-8 w-1 rounded-l-full bg-[#2a3446]" />
                         <span className="absolute -left-[0.45rem] top-[7.1rem] h-12 w-1 rounded-l-full bg-[#2a3446]" />
@@ -518,7 +557,28 @@ export const LandingPage = () => {
                     </div>
                   ))}
                 </div>
+
+                {/* Mobile Carousel Indicators */}
+                <div className="mt-4 flex items-center justify-center gap-2 md:hidden">
+                  {[0, 1].map((idx) => (
+                    <span
+                      key={idx}
+                      onClick={() => {
+                        if (carouselRef.current) {
+                          const cardWidth = carouselRef.current.clientWidth * 0.86 + 20;
+                          carouselRef.current.scrollTo({ left: idx === 0 ? 0 : cardWidth, behavior: 'smooth' });
+                          setActiveAppIndex(idx);
+                        }
+                      }}
+                      className={`h-2 cursor-pointer rounded-full transition-all duration-300 ${
+                        activeAppIndex === idx ? 'w-6 bg-[#000a1e]' : 'w-2 bg-[#000a1e]/25'
+                      }`}
+                    />
+                  ))}
+                </div>
               </div>
+              {/* END OF UPDATED SECTION */}
+
             </div>
           </div>
         </section>
@@ -552,60 +612,18 @@ export const LandingPage = () => {
           </div>
         </section>
 
-        {/* <section id="fees" className="bg-[#ffffff] py-[100px]">
-          <div className="mx-auto max-w-7xl px-6 md:px-12">
-            <div className="grid gap-8 lg:grid-cols-3">
-              <div className="rounded-[2rem] bg-[#000a1e] p-10 text-white shadow-[0_30px_80px_rgba(0,10,30,0.18)]">
-                <h3 className="text-2xl font-semibold">Transparent Fee Structure</h3>
-                <p className="mt-4 text-sm leading-7 text-[#d1d5db]">
-                  Investing in your future as a high-caliber aviator.
-                </p>
-                <div className="mt-8 space-y-4 text-sm">
-                  {feeBreakdown.map((item) => (
-                    <div key={item.label} className="flex items-center justify-between border-b border-white/10 pb-4">
-                      <span>{item.label}</span>
-                      <span className="font-semibold text-[#feb316]">{item.amount}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="lg:col-span-2 grid gap-6 md:grid-cols-2">
-                {packageOptions.map((pkg) => (
-                  <div key={pkg.title} className="rounded-[2rem] border border-[#e5e5e5] bg-white p-8 shadow-sm">
-                    <h4 className="text-2xl font-bold text-[#1c1b1b]">{pkg.title}</h4>
-                    <p className="mt-4 text-sm leading-7 text-[#5f6670]">{pkg.description}</p>
-                    <div className="mt-8 text-4xl font-extrabold text-[#1c1b1b]">{pkg.price}</div>
-                    <div className="mt-6 text-xs uppercase tracking-[0.2em] text-[#9e9e9e]">Total Package</div>
-                    <button type="button" className="mt-8 w-full rounded-2xl border border-[#1c1b1b] bg-white py-4 text-sm font-semibold text-[#1c1b1b] transition hover:bg-[#1c1b1b] hover:text-white">
-                      Select Plan
-                    </button>
-                  </div>
-                ))}
-                <div className="rounded-[2rem] border border-[#feb316]/25 bg-[#fff2d6] p-8">
-                  <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-[#feb316] text-[#1c1b1b] text-3xl">
-                    <span className="material-symbols-outlined">redeem</span>
-                  </div>
-                  <h4 className="mt-6 text-lg font-semibold text-[#1c1b1b]">Bonus Inclusion</h4>
-                  <p className="mt-4 text-sm leading-7 text-[#5f6670]">Every package includes 40 Hours of Flight Simulator Training at no extra cost.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section> */}
-
         <section className="bg-[#0c1831] py-[70px] text-white">
           <div className="mx-auto max-w-7xl px-6 md:px-12">
             <div className="text-center mb-16" data-scroll-reveal>
               <h2 className="text-4xl font-bold tracking-[-0.03em] sm:text-5xl">Students Become Family</h2>
               <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#c6c9d9]">Life at the academy is more than just learning; it&apos;s about building a brotherhood of aviators.</p>
             </div>
-            <div className="grid auto-rows-[12rem] grid-cols-2 gap-3 sm:auto-rows-[14rem] md:grid-cols-4 lg:grid-cols-12 lg:auto-rows-[10rem] lg:gap-4">
-              <div className="col-span-2 row-span-2 overflow-hidden rounded-3xl shadow-[0_24px_70px_rgba(0,0,0,0.22)] md:col-span-2 lg:col-span-4 lg:row-span-2" data-scroll-reveal>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-12 lg:auto-rows-[10rem]">
+              <div className="aspect-[4/3] overflow-hidden rounded-3xl shadow-[0_24px_70px_rgba(0,0,0,0.22)] lg:col-span-4 lg:row-span-2 lg:aspect-auto" data-scroll-reveal>
                 <img src={galleryImages[0]} alt="Student life cockpit" className="h-full w-full object-cover transition duration-500 hover:scale-105" />
               </div>
 
-              <div className="col-span-2 overflow-hidden rounded-3xl shadow-[0_22px_60px_rgba(0,0,0,0.18)] md:col-span-2 lg:col-span-4 lg:row-span-2" data-scroll-reveal>
+              <div className="aspect-video overflow-hidden rounded-3xl shadow-[0_22px_60px_rgba(0,0,0,0.18)] md:aspect-[4/3] lg:col-span-4 lg:row-span-2 lg:aspect-auto" data-scroll-reveal>
                 <video
                   src={`/videos/${galleryVideos[0]}`}
                   controls
@@ -617,15 +635,15 @@ export const LandingPage = () => {
                 />
               </div>
 
-              <div className="col-span-1 overflow-hidden rounded-3xl shadow-[0_18px_45px_rgba(0,0,0,0.16)] md:col-span-2 lg:col-span-4 lg:row-span-2" data-scroll-reveal>
+              <div className="aspect-[4/3] overflow-hidden rounded-3xl shadow-[0_18px_45px_rgba(0,0,0,0.16)] lg:col-span-4 lg:row-span-2 lg:aspect-auto" data-scroll-reveal>
                 <img src={galleryImages[1]} alt="Student life two" className="h-full w-full object-cover transition duration-500 hover:scale-105" />
               </div>
 
-              <div className="col-span-2 overflow-hidden rounded-3xl shadow-[0_18px_45px_rgba(0,0,0,0.16)] md:col-span-2 lg:col-span-4 lg:row-span-2" data-scroll-reveal>
+              <div className="aspect-[4/3] overflow-hidden rounded-3xl shadow-[0_18px_45px_rgba(0,0,0,0.16)] lg:col-span-4 lg:row-span-2 lg:aspect-auto" data-scroll-reveal>
                 <img src={galleryImages[2]} alt="Pilot Pathshala cadets on the ramp" className="h-full w-full object-cover transition duration-500 hover:scale-105" />
               </div>
 
-              <div className="col-span-2 overflow-hidden rounded-3xl bg-[#09122f] shadow-[0_22px_60px_rgba(0,0,0,0.2)] md:col-span-2 lg:col-span-4 lg:row-span-2" data-scroll-reveal>
+              <div className="aspect-video overflow-hidden rounded-3xl bg-[#09122f] shadow-[0_22px_60px_rgba(0,0,0,0.2)] md:aspect-[4/3] lg:col-span-4 lg:row-span-2 lg:aspect-auto" data-scroll-reveal>
                 <video
                   src={`/videos/${galleryVideos[1]}`}
                   controls
@@ -637,7 +655,7 @@ export const LandingPage = () => {
                 />
               </div>
 
-              <div className="col-span-2 overflow-hidden rounded-3xl shadow-[0_18px_45px_rgba(0,0,0,0.16)] md:col-span-2 lg:col-span-4 lg:row-span-2" data-scroll-reveal>
+              <div className="aspect-[4/3] overflow-hidden rounded-3xl shadow-[0_18px_45px_rgba(0,0,0,0.16)] lg:col-span-4 lg:row-span-2 lg:aspect-auto" data-scroll-reveal>
                 <img src={galleryImages[4]} alt="Student life five" className="h-full w-full object-cover transition duration-500 hover:scale-105" />
               </div>
             </div>
@@ -752,10 +770,10 @@ export const LandingPage = () => {
 
                   <button
                     type="submit"
-                    disabled={submittingEnquiry}
+                    disabled={submittingEnquiry || submitted}
                     className="w-full rounded-2xl bg-[#feb316] px-6 py-4 text-sm font-bold uppercase tracking-[0.12em] text-[#1c1b1b] transition hover:bg-[#e4a700] disabled:opacity-60"
                   >
-                    {submittingEnquiry ? 'Sending...' : 'Send Inquiry'}
+                    {submitted ? 'Sent' : submittingEnquiry ? 'Sending...' : 'Send Inquiry'}
                   </button>
                   {submitted && <p className="text-sm text-[#1c1b1b]/80">Thanks! We will contact you shortly.</p>}
                 </form>
