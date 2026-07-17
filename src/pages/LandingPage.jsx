@@ -341,7 +341,7 @@ export const LandingPage = () => {
           <nav className="hidden lg:flex items-center gap-8 text-sm font-semibold text-[#1c1b1b]">
             <a href="#about" className="transition hover:text-[#feb316]">About</a>
             <a href="#pathway" className="transition hover:text-[#feb316]">Pathway</a>
-            <a href="#fees" className="transition hover:text-[#feb316]">Fees</a>
+          
             <a href="#contact" className="transition hover:text-[#feb316]">Contact</a>
             <button type="button" onClick={() => openAuthModal('login')} className="rounded-full bg-[#feb316] px-6 py-2.5 text-sm font-bold uppercase tracking-[0.12em] text-[#1c1b1b] transition hover:bg-[#e4a700]">Login</button>
           </nav>
@@ -800,7 +800,6 @@ export const LandingPage = () => {
             <ul className="mt-6 space-y-4 text-sm text-white/70">
               <li><a href="#about" className="transition hover:text-white">About</a></li>
               <li><a href="#pathway" className="transition hover:text-white">Pathway</a></li>
-              <li><a href="#fees" className="transition hover:text-white">Fees</a></li>
               <li><a href="#contact" className="transition hover:text-white">Contact</a></li>
             </ul>
           </div>
