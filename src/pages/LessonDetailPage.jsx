@@ -76,7 +76,237 @@ export const LessonDetailPage = () => {
   const [activeVideoIndex, setActiveVideoIndex] = useState(0);
   const [isVideoExpanded, setIsVideoExpanded] = useState(false);
   const [watermarkTime, setWatermarkTime] = useState(() => formatWatermarkTime(new Date()));
+  const [testMode, setTestMode] = useState('practice');
+  const [lessonTests, setLessonTests] = useState([]);
+  const [loadingLessonTests, setLoadingLessonTests] = useState(false);
+  const [selectedTestId, setSelectedTestId] = useState(null);
+  const [lessonQuestionData, setLessonQuestionData] = useState(null);
+  const [lessonQuestionProgress, setLessonQuestionProgress] = useState({ current: 1, total: 0 });
+  const [lessonExamTimer, setLessonExamTimer] = useState('01:24:34');
+  const [lessonTimerSeconds, setLessonTimerSeconds] = useState(null);
+  const [lessonCompleted, setLessonCompleted] = useState(false);
+  const [lessonSubmitting, setLessonSubmitting] = useState(false);
+  const [lessonSelectedAnswers, setLessonSelectedAnswers] = useState({});
+  const [lessonEvaluations, setLessonEvaluations] = useState({});
+  const [lessonResultData, setLessonResultData] = useState(null);
+  const [lessonShowResults, setLessonShowResults] = useState(false);
   const videoRef = useRef(null);
+
+  const selectedLessonTest = useMemo(
+    () => lessonTests.find((test) => String(test.id) === String(selectedTestId)) || null,
+    [lessonTests, selectedTestId]
+  );
+
+  const lessonContent = useMemo(
+    () => (lessonShowResults ? null : lessonQuestionData),
+    [lessonQuestionData, lessonShowResults]
+  );
+
+  const lessonSelectedOptionId = lessonContent ? lessonSelectedAnswers[lessonContent.id] : null;
+  const lessonCurrentEvaluation = lessonContent ? lessonEvaluations[lessonContent.id] : null;
+  const lessonIsCorrectSelection = Boolean(lessonCurrentEvaluation?.isCorrect);
+  const lessonIsPracticeAnswered = testMode === 'practice' && Boolean(lessonCurrentEvaluation);
+
+  const parseTimer = (str) => {
+    if (!str) return null;
+    const parts = String(str).split(':').map((p) => Number(p));
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    return Number(str) || null;
+  };
+
+  const formatTimer = (secs) => {
+    if (secs == null) return '';
+    const hh = Math.floor(secs / 3600);
+    const mm = Math.floor((secs % 3600) / 60);
+    const ss = secs % 60;
+    return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+  };
+
+  const resetLessonTestState = () => {
+    setSelectedTestId(null);
+    setLessonQuestionData(null);
+    setLessonQuestionProgress({ current: 1, total: 0 });
+    setLessonExamTimer('01:24:34');
+    setLessonTimerSeconds(null);
+    setLessonCompleted(false);
+    setLessonSubmitting(false);
+    setLessonSelectedAnswers({});
+    setLessonEvaluations({});
+    setLessonResultData(null);
+    setLessonShowResults(false);
+  };
+
+  const loadLessonTests = async (mode = testMode) => {
+    if (!token || !lesson?.courseTitle) return;
+    try {
+      setLoadingLessonTests(true);
+      const data = await apiClient.getAvailableTests(mode, token, lesson?.lessonId || lessonId);
+      const tests = Array.isArray(data?.tests) ? data.tests : [];
+      const currentCourseTitle = String(lesson.courseTitle || '').trim();
+      setLessonTests(tests.filter((test) => String(test.subject || '').trim() === currentCourseTitle));
+    } catch (error) {
+      console.error('Failed to load lesson tests:', error);
+      setLessonTests([]);
+    } finally {
+      setLoadingLessonTests(false);
+    }
+  };
+
+  const loadLessonQuestion = async (testId, mode = testMode) => {
+    if (!token || !testId) return;
+    try {
+      setLessonSubmitting(true);
+      const data = await apiClient.getCurrentQuestion(mode, token, testId);
+      setLessonQuestionData(data?.question || null);
+      setLessonQuestionProgress(data?.progress || { current: 1, total: 0 });
+      setLessonExamTimer(data?.examTimer || '01:24:34');
+      setLessonCompleted(Boolean(data?.completed || !data?.question));
+      setLessonShowResults(false);
+      setLessonSelectedAnswers({});
+      setLessonEvaluations({});
+    } catch (error) {
+      console.error('Failed to load lesson question:', error);
+      setLessonQuestionData(null);
+      setLessonCompleted(false);
+    } finally {
+      setLessonSubmitting(false);
+    }
+  };
+
+  const loadLessonResultSummary = async (mode = testMode, testId = selectedTestId) => {
+    if (!token || !testId) return;
+    try {
+      const data = await apiClient.getTestResultSummary(token, mode, testId);
+      setLessonResultData(data || null);
+      setLessonShowResults(true);
+      setLessonCompleted(true);
+      setLessonQuestionData(null);
+    } catch (error) {
+      alert(`Unable to load lesson test results: ${error.message}`);
+    }
+  };
+
+  const handleLessonSelectTest = async (testId) => {
+    if (!testId) return;
+    resetLessonTestState();
+    setSelectedTestId(testId);
+    await loadLessonQuestion(testId);
+  };
+
+  const handleLessonPracticeSelect = async (optionId) => {
+    if (!lessonContent || lessonSubmitting || lessonCurrentEvaluation) return;
+    try {
+      setLessonSubmitting(true);
+      setLessonSelectedAnswers((prev) => ({ ...prev, [lessonContent.id]: optionId }));
+      const data = await apiClient.submitQuestion(
+        { testId: selectedTestId, questionId: lessonContent.id, selectedOptionId: optionId },
+        token
+      );
+      setLessonEvaluations((prev) => ({ ...prev, [lessonContent.id]: data?.result || null }));
+    } catch (error) {
+      alert(`Unable to submit answer: ${error.message}`);
+    } finally {
+      setLessonSubmitting(false);
+    }
+  };
+
+  const lessonIsLastQuestion =
+    Boolean(lessonContent) &&
+    !lessonCompleted &&
+    Number(lessonQuestionProgress?.total || 0) > 0 &&
+    Number(lessonQuestionProgress?.current || 0) >= Number(lessonQuestionProgress?.total || 0);
+
+  const lessonQuestionTimer = useMemo(
+    () => parseTimer(lessonExamTimer),
+    [lessonExamTimer]
+  );
+
+  const submitLessonExamAndNext = async () => {
+    if (!lessonContent || lessonSubmitting) return;
+    const selectedOptionId = lessonSelectedAnswers[lessonContent.id];
+    if (!selectedOptionId) {
+      alert('Select an answer before continuing.');
+      return;
+    }
+
+    try {
+      setLessonSubmitting(true);
+      await apiClient.submitQuestion(
+        { testId: selectedTestId, questionId: lessonContent.id, selectedOptionId },
+        token
+      );
+      if (lessonIsLastQuestion) {
+        await loadLessonResultSummary(testMode, selectedTestId);
+        return;
+      }
+      await loadLessonQuestion(selectedTestId);
+    } catch (error) {
+      alert(`Unable to continue: ${error.message}`);
+    } finally {
+      setLessonSubmitting(false);
+    }
+  };
+
+  const handleLessonTestContinue = async () => {
+    if (!lessonContent) return;
+    if (testMode === 'practice') {
+      if (!lessonCurrentEvaluation) {
+        alert('Select an answer before continuing.');
+        return;
+      }
+      if (lessonIsLastQuestion) {
+        await loadLessonResultSummary(testMode, selectedTestId);
+        return;
+      }
+      await loadLessonQuestion(selectedTestId);
+      return;
+    }
+    await submitLessonExamAndNext();
+  };
+
+  const getLessonPrimaryLabel = () => {
+    if (lessonCompleted && lessonShowResults) return 'View Results';
+    if (testMode === 'practice' && lessonCurrentEvaluation && lessonIsLastQuestion) return 'Submit Test';
+    if (testMode === 'practice' && lessonCurrentEvaluation) return 'Next →';
+    if (testMode === 'exam' && lessonSelectedOptionId) return lessonIsLastQuestion ? 'Submit Test' : 'Next →';
+    if (lessonSubmitting) return 'Processing...';
+    return 'Start Test';
+  };
+
+  useEffect(() => {
+    if (activeTab !== 'Test') return undefined;
+    loadLessonTests();
+  }, [activeTab, token, testMode, lesson?.courseTitle]);
+
+  useEffect(() => {
+    if (activeTab !== 'Test') return undefined;
+    if (!selectedTestId) return undefined;
+    loadLessonQuestion(selectedTestId);
+  }, [activeTab, selectedTestId, token, testMode]);
+
+  useEffect(() => {
+    if (lessonTimerSeconds == null) return undefined;
+    const timer = window.setInterval(() => {
+      setLessonTimerSeconds((prev) => {
+        if (prev == null) return null;
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [lessonTimerSeconds]);
+
+  useEffect(() => {
+    if (lessonTimerSeconds == null) {
+      const secs = parseTimer(lessonExamTimer);
+      if (secs != null) setLessonTimerSeconds(secs);
+    }
+  }, [lessonExamTimer]);
 
   useEffect(() => {
     const loadLesson = async () => {
@@ -366,18 +596,25 @@ export const LessonDetailPage = () => {
           </button>
         </div>
 
-        <div className="mb-6 flex gap-4 border-b border-border">
-          {['Video', 'Notes', 'Takeaways', 'My Notes'].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`border-b-2 px-4 py-2 font-semibold transition-colors ${
-                activeTab === tab ? 'border-primary-900 text-primary-900' : 'border-transparent text-tertiary_text hover:text-primary_text'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+        <div className="mb-6 rounded-xl border border-border bg-white/90 p-2 shadow-sm">
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {['Video', 'Notes', 'Takeaways', 'My Notes', 'Test'].map((tab) => {
+              const isActive = activeTab === tab;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+                    isActive
+                      ? 'bg-[#e9b400] text-[#111317] shadow-sm'
+                      : 'bg-[#f8f9fb] text-tertiary_text hover:bg-[#eef0f4] hover:text-primary_text'
+                  }`}
+                >
+                  {tab}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -514,6 +751,173 @@ export const LessonDetailPage = () => {
                 </button>
               </div>
             ) : null}
+
+            {activeTab === 'Test' ? (
+              <div className="space-y-6">
+                <div className="rounded-2xl border border-border bg-white p-6">
+                  <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="text-xl font-bold text-primary-900">Lesson Test</h2>
+                      <p className="mt-1 text-sm text-tertiary_text">Practice and exam review for this lesson.</p>
+                    </div>
+                    <div className="inline-flex rounded-full border border-[#d2d6de] bg-[#f8f9fb] p-1">
+                      {['practice', 'exam'].map((modeValue) => (
+                        <button
+                          key={modeValue}
+                          type="button"
+                          onClick={() => {
+                            setTestMode(modeValue);
+                            resetLessonTestState();
+                          }}
+                          className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                            testMode === modeValue ? 'bg-[#e9b400] text-[#111317]' : 'text-[#4b5563]'
+                          }`}
+                        >
+                          {modeValue === 'practice' ? 'Practice' : 'Exam'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {loadingLessonTests ? (
+                    <div className="rounded-2xl border border-dashed border-[#c0c4d1] bg-[#f8f9fb] p-8 text-center text-sm text-tertiary_text">Loading available tests...</div>
+                  ) : !lessonTests.length ? (
+                    <div className="rounded-2xl border border-[#cfd3da] bg-[#f8f9fb] p-8 text-center text-sm text-tertiary_text">
+                      No lesson-specific tests are available for this course right now.
+                    </div>
+                  ) : !selectedTestId ? (
+                    <div className="space-y-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        {lessonTests.map((test) => {
+                          const total = Number(test.total || 0);
+                          const attempted = Number(test.attempted || 0);
+                          const progress = total ? Math.round((attempted / total) * 100) : 0;
+                          return (
+                            <button
+                              key={test.id}
+                              type="button"
+                              onClick={() => handleLessonSelectTest(test.id)}
+                              className="group rounded-2xl border border-[#d3d6db] bg-[#f8f9fb] p-5 text-left transition hover:border-[#e9b400]"
+                            >
+                              <div className="flex items-center justify-between gap-4">
+                                <div>
+                                  <p className="text-lg font-semibold text-primary_text">{test.title}</p>
+                                  <p className="mt-1 text-sm text-tertiary_text">{test.subject || 'Lesson test'}</p>
+                                </div>
+                                <span className="rounded-full border border-[#e9b400] bg-[#fff7db] px-3 py-1 text-xs font-bold text-primary_text">
+                                  {attempted ? 'Resume' : 'Start'}
+                                </span>
+                              </div>
+                              <div className="mt-4 text-sm text-tertiary_text">
+                                {total} questions • {attempted}/{total} attempted • {progress}% complete
+                              </div>
+                              <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#e6e9ef]">
+                                <div className="h-full rounded-full bg-[#e9b400]" style={{ width: `${progress}%` }} />
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="rounded-2xl border border-border bg-[#f8f9fb] p-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-secondary_text">Current Test</p>
+                            <p className="text-lg font-bold text-primary_text">{selectedLessonTest?.title || 'Selected test'}</p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-3 text-sm text-tertiary_text">
+                            <span>{lessonQuestionProgress.current}/{lessonQuestionProgress.total} questions</span>
+                            <span>Mode: {testMode === 'practice' ? 'Practice' : 'Exam'}</span>
+                            <span>{lessonTimerSeconds != null ? formatTimer(lessonTimerSeconds) : lessonExamTimer}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {lessonShowResults ? (
+                        <div className="rounded-2xl border border-border bg-white p-6">
+                          <h3 className="text-xl font-bold text-primary-900">Test Results</h3>
+                          <p className="mt-2 text-sm text-tertiary_text">Review your performance for this lesson test.</p>
+                          <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                            <div className="rounded-2xl border border-[#e6e9ef] bg-[#f8f9fb] p-4 text-center">
+                              <p className="text-sm text-tertiary_text">Score</p>
+                              <p className="mt-2 text-2xl font-bold text-primary_text">{lessonResultData?.summary?.score || '0/0'}</p>
+                            </div>
+                            <div className="rounded-2xl border border-[#e6e9ef] bg-[#f8f9fb] p-4 text-center">
+                              <p className="text-sm text-tertiary_text">Correct</p>
+                              <p className="mt-2 text-2xl font-bold text-green-700">{lessonResultData?.summary?.correct || 0}</p>
+                            </div>
+                            <div className="rounded-2xl border border-[#e6e9ef] bg-[#f8f9fb] p-4 text-center">
+                              <p className="text-sm text-tertiary_text">Incorrect</p>
+                              <p className="mt-2 text-2xl font-bold text-red-600">{lessonResultData?.summary?.incorrect || 0}</p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              resetLessonTestState();
+                              setSelectedTestId(selectedLessonTest?.id || null);
+                              if (selectedLessonTest?.id) loadLessonQuestion(selectedLessonTest.id);
+                            }}
+                            className="mt-6 rounded-lg bg-[#e9b400] px-6 py-3 font-semibold text-[#111317]"
+                          >
+                            Review Again
+                          </button>
+                        </div>
+                      ) : lessonContent ? (
+                        <div className="space-y-4">
+                          <div className="rounded-2xl border border-border bg-white p-6">
+                            <h3 className="text-lg font-semibold text-primary_text">{lessonContent.prompt}</h3>
+                            <p className="mt-2 text-sm text-tertiary_text">Select the best answer below.</p>
+                          </div>
+
+                          <div className="space-y-3">
+                            {lessonContent.options.map((option, index) => {
+                              const isSelected = lessonSelectedOptionId === option.id;
+                              const isCorrectAnswerOption = lessonIsPracticeAnswered && option.id === lessonCurrentEvaluation?.correctOptionId;
+                              const isWrongSelection = lessonIsPracticeAnswered && isSelected && !lessonIsCorrectSelection;
+                              const isCorrectSelectionOption = lessonIsPracticeAnswered && isSelected && lessonIsCorrectSelection;
+
+                              return (
+                                <button
+                                  key={option.id}
+                                  type="button"
+                                  onClick={() => (testMode === 'practice' ? handleLessonPracticeSelect(option.id) : setLessonSelectedAnswers((prev) => ({ ...prev, [lessonContent.id]: option.id })))}
+                                  className={`w-full rounded-xl border p-4 text-left transition ${
+                                    isCorrectSelectionOption ? 'border-green-500 bg-green-100' : isWrongSelection ? 'border-red-400 bg-red-100' : isSelected ? 'border-[#e9b400] bg-[#fff7db]' : 'border-[#d3d6db] bg-[#f8f9fb]'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-4">
+                                    <span className={`flex h-8 w-8 items-center justify-center rounded-full border ${isSelected ? 'border-[#e9b400]' : 'border-[#d3d6db]'} bg-white text-sm font-semibold text-primary_text`}>
+                                      {String.fromCharCode(65 + index)}
+                                    </span>
+                                    <span className="text-base font-medium text-primary_text">{option.text}</span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={goToNextLessonPracticeQuestion}
+                            disabled={lessonSubmitting || (!lessonIsPracticeAnswered && testMode === 'practice') || (testMode === 'exam' && !lessonSelectedOptionId)}
+                            className="mt-4 w-full rounded-xl bg-[#e9b400] px-6 py-4 text-lg font-semibold text-[#111317] disabled:opacity-50"
+                          >
+                            {getLessonPrimaryLabel()}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl border border-border bg-[#f8f9fb] p-8 text-center text-sm text-tertiary_text">
+                          Select a test to begin.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div className="space-y-6">
@@ -566,6 +970,9 @@ export const LessonDetailPage = () => {
                 <div className="flex gap-3">
                   <button type="button" onClick={() => setActiveTab('My Notes')} className="rounded-full border border-border p-3 hover:bg-gray-50">
                     <FileText size={18} />
+                  </button>
+                  <button type="button" onClick={() => setActiveTab('Test')} className="rounded-full border border-[#e9b400] bg-[#fff7db] px-3 py-2 text-sm font-semibold text-primary_text hover:bg-[#ffe89b]">
+                    Test
                   </button>
                   <button type="button" onClick={handleToggleBookmark} className="rounded-full border border-border p-3 hover:bg-gray-50">
                     {bookmarked ? <BookmarkCheck size={18} className="text-accent" /> : <Bookmark size={18} />}

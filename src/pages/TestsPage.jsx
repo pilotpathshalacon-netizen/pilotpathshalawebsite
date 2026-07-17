@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { AlertCircle, BookOpen, Check, CheckCircle, ChevronLeft, Clock3, Flag, RotateCcw, X, XCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../api/client';
@@ -104,6 +104,81 @@ export const TestsPage = () => {
   const [questionData, setQuestionData] = useState(null);
   const [questionProgress, setQuestionProgress] = useState({ current: 1, total: 20 });
   const [examTimer, setExamTimer] = useState('01:24:34');
+  const [timerSeconds, setTimerSeconds] = useState(null);
+  const timerRef = useRef(null);
+
+  const parseTimer = (str) => {
+    if (!str) return null;
+    const parts = String(str).split(':').map((p) => Number(p));
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    return Number(str) || null;
+  };
+
+  const formatTimer = (secs) => {
+    if (secs == null) return '';
+    const hh = Math.floor(secs / 3600);
+    const mm = Math.floor((secs % 3600) / 60);
+    const ss = secs % 60;
+    return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+  };
+
+  useEffect(() => {
+    // initialize timerSeconds when examTimer changes (only if not already counting)
+    if (timerSeconds == null) {
+      const secs = parseTimer(examTimer);
+      if (secs != null) setTimerSeconds(secs);
+      else setTimerSeconds(null);
+    }
+  }, [examTimer]);
+
+  useEffect(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    if (timerSeconds == null) return undefined;
+
+    timerRef.current = setInterval(() => {
+      setTimerSeconds((prev) => {
+        if (prev == null) return null;
+        if (prev <= 1) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = null;
+    };
+  }, [timerSeconds]);
+
+  // when timer reaches zero, auto-submit selected answers and show results
+  useEffect(() => {
+    if (timerSeconds !== 0) return;
+    const doAutoFinish = async () => {
+      if (!selectedTestId) return;
+      try {
+        // submit any locally selected answers
+        const entries = Object.entries(selectedAnswers || {});
+        await Promise.allSettled(
+          entries.map(([questionId, selectedOptionId]) =>
+            apiClient.submitQuestion({ testId: selectedTestId, questionId: Number(questionId), selectedOptionId }, token)
+          )
+        );
+      } catch (e) {
+        // ignore
+      } finally {
+        await loadResultSummary(mode, selectedTestId);
+      }
+    };
+
+    doAutoFinish();
+  }, [timerSeconds]);
   const [completed, setCompleted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [history, setHistory] = useState([]);
@@ -124,6 +199,8 @@ export const TestsPage = () => {
     setQuestionData(null);
     setResultData(null);
     setShowResults(false);
+    setExamTimer(null);
+    setTimerSeconds(null);
   };
 
   const loadAvailableTests = async (selectedMode = mode) => {
@@ -685,10 +762,10 @@ export const TestsPage = () => {
               <p className="text-lg font-medium text-[#8f949e]">
                 Question {questionProgress.current} of {questionProgress.total}
               </p>
-              {mode === 'exam' ? (
+              { (mode === 'exam' || timerSeconds != null) ? (
                 <div className="flex items-center gap-2 text-[#9ca3ae]">
                   <Clock3 size={14} />
-                  <span className="text-sm">{examTimer}</span>
+                  <span className="text-sm">{timerSeconds != null ? formatTimer(timerSeconds) : examTimer}</span>
                 </div>
               ) : null}
             </div>

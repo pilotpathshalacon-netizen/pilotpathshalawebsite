@@ -115,7 +115,12 @@ export const DashboardPage = () => {
   const activeCourseProgress = Math.round(Number(currentModule?.courseProgress || 0));
   const planePosition = Math.min(100, Math.max(0, activeCourseProgress));
   const canOpenActiveLesson = Boolean(currentLesson?.courseId && currentLesson?.lessonId);
-  const activePrograms = dashboard?.activePrograms || [];
+  const activePrograms = (dashboard?.activePrograms || []).filter((program) => {
+    if (!program || !program.id) return false;
+    if (program.id === currentModule?.courseId) return false;
+    if (program.isPurchased) return false;
+    return true;
+  });
   const captainTip = dashboard?.captainTip || 'Stay consistent with short daily sessions.';
 
   return (
@@ -191,24 +196,20 @@ export const DashboardPage = () => {
           )}
 
           {/* Recommended Programs */}
-          <div>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-primary-900">
-                {hasEnrollments ? 'Recommended Programs' : 'Start Here'}
-              </h2>
-              <button
-                onClick={() => navigate('/courses')}
-                className="text-accent hover:underline font-semibold"
-              >
-                View All
-              </button>
-            </div>
-
-            {activePrograms.length === 0 ? (
-              <div className="bg-gray-50 rounded-lg p-8 text-center">
-                <p className="text-tertiary_text">No programs available right now</p>
+          {activePrograms.length > 0 && (
+            <div>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold text-primary-900">
+                  {hasEnrollments ? 'Recommended Programs' : 'Start Here'}
+                </h2>
+                <button
+                  onClick={() => navigate('/courses')}
+                  className="text-accent hover:underline font-semibold"
+                >
+                  View All
+                </button>
               </div>
-            ) : (
+
               <div className="space-y-4">
                 {activePrograms.map(program => (
                   <div key={program.id} className="bg-white rounded-lg border border-border p-6 hover:shadow-md transition-shadow">
@@ -266,8 +267,8 @@ export const DashboardPage = () => {
                   </div>
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Captain's Tip */}
           <div className="bg-primary-50 border border-[#e0c261] rounded-lg p-6 flex gap-4">

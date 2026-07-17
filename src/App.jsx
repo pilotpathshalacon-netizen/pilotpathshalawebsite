@@ -2,6 +2,8 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { LandingPage } from './pages/LandingPage';
+import { LoginPage } from './pages/LoginPage';
+import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { CoursesPage } from './pages/CoursesPage';
 import { LessonDetailPage } from './pages/LessonDetailPage';
@@ -17,8 +19,10 @@ import { ExamFocusStrategyPage } from './pages/ExamFocusStrategyPage';
 import { DailyReminderPage } from './pages/DailyReminderPage';
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
 import { TermsOfUsePage } from './pages/TermsOfUsePage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 
-const WEBSITE_CONSTRUCTION_MODE = true;
+const WEBSITE_CONSTRUCTION_MODE = false;
 
 const PrivateRoute = ({ children }) => {
   const { token, loading } = useAuth();
@@ -90,19 +94,14 @@ function App() {
   return (
     <Router>
       <BrowserPrivacyShield />
-      {WEBSITE_CONSTRUCTION_MODE ? (
-        <div className="fixed inset-x-0 top-0 z-[1000] border-b border-[#e1c24f] bg-[#fff6d8] px-4 py-3 text-center shadow-sm">
-          <p className="text-sm font-semibold tracking-[0.04em] text-[#5f4700] sm:text-base">
-            Website Under Construction. Some sections may be updated or temporarily unstable.
-          </p>
-        </div>
-      ) : null}
-      <div className={WEBSITE_CONSTRUCTION_MODE ? 'pt-[58px]' : ''}>
+      <div>
         <Routes>
         {/* Public Routes */}
         <Route path="/" element={token ? <Navigate to="/dashboard" /> : <LandingPage />} />
-        <Route path="/login" element={token ? <Navigate to="/dashboard" /> : <Navigate to="/?auth=login" replace />} />
-        <Route path="/register" element={token ? <Navigate to="/dashboard" /> : <Navigate to="/?auth=register" replace />} />
+        <Route path="/login" element={token ? <Navigate to="/dashboard" /> : <LoginPage />} />
+        <Route path="/register" element={token ? <Navigate to="/dashboard" /> : <RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
 
         {/* Private Routes */}
         <Route

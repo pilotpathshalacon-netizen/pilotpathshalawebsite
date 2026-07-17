@@ -1,87 +1,103 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import {
-  ArrowRight,
-  BadgeCheck,
-  BookOpen,
-  CheckCircle2,
-  Check,
-  ChevronDown,
-  CircleX,
-  Copyright,
-  ExternalLink,
-  Globe2,
-  GraduationCap,
-  Instagram,
-  Mail,
-  MapPin,
-  MessageCircle,
-  ShieldCheck,
-  Target,
-  Users,
-} from 'lucide-react';
+import { Check, CircleX, MessageCircle } from 'lucide-react';
 import logo from '../assets/pilot-pathshala-logo.png';
 import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../api/client';
 
-const learningStats = [
-  { value: 'Free', label: 'online ground classes to begin your journey' },
-  { value: '2+', label: 'offline centers active in Nagpur and Ranchi' },
-  { value: 'Global', label: 'flying pathways in the USA and Philippines' },
+const contactTrackOptions = [
+  'India Training Pathway',
+  'Foreign Training Pathway',
+  'Simulator Training Only',
 ];
 
-const trainingPoints = [
+const aboutHighlights = [
   {
-    title: 'DGCA Ground School',
-    description: 'Structured preparation for PPL, CPL, and ATPL with exam-focused clarity.',
-    icon: GraduationCap,
+    icon: 'flight_class',
+    title: 'Airline Culture',
+    description: 'Immersion in professional standards from day one.',
   },
   {
-    title: 'Interactive Learning',
-    description: 'Live classes, practice banks, and revision-friendly learning material.',
-    icon: BookOpen,
+    icon: 'psychology',
+    title: 'Expert Mentors',
+    description: 'Guided by aviators with 15+ years of experience.',
   },
   {
-    title: 'Mentorship Support',
-    description: 'Guidance from experienced mentors and airline pilots at every stage.',
-    icon: Users,
+    icon: 'model_training',
+    title: 'Real Prep',
+    description: 'Intense training for PPL, CPL, and ATPL exams.',
   },
   {
-    title: 'Career-Ready Path',
-    description: 'Training designed to build confident airline pilots, not just test takers.',
-    icon: Target,
+    icon: 'safety_check',
+    title: 'Aviation Ethics',
+    description: 'Discipline and communication in the cockpit.',
   },
 ];
 
 const pathwaySteps = [
   {
-    step: 'Step 1',
-    title: 'Build your foundation',
-    description: 'Start with accessible DGCA-focused theory classes and concept-first lessons.',
+    number: '01',
+    icon: 'medical_services',
+    title: 'Eligibility & Medicals',
+    items: ['10+2 with Physics/Math', 'Minimum 17 Years Old', 'Class 2 Medical Certificate'],
   },
   {
-    step: 'Step 2',
-    title: 'Practice with purpose',
-    description: 'Use question banks, expert sessions, and guided revision to stay exam-ready.',
+    number: '02',
+    icon: 'school',
+    title: 'Ground Classes',
+    items: ['DGCA Core Subjects', 'RTR & Technical Prep', 'Theory Exams Clearance'],
   },
   {
-    step: 'Step 3',
-    title: 'Move toward flight training',
-    description: 'Continue with strong mentorship and international pathway support when you are ready.',
+    number: '03',
+    icon: 'connecting_airports',
+    title: 'Flight Training',
+    items: ['200 Flight Hours', 'Instrument Rating', 'Multi-Engine Experience'],
+  },
+  {
+    number: '04',
+    icon: 'verified',
+    title: 'Advanced Ratings',
+    items: ['Type Rating Support', 'Multi-Engine Rating', 'DGCA Endorsements'],
+  },
+  {
+    number: '05',
+    icon: 'work',
+    title: 'Job Readiness',
+    items: ['Career Mentorship', 'Airline Interview Prep', 'Placement Guidance'],
   },
 ];
 
-const trustPoints = [
-  'Designed for aspirants who need clarity, structure, and affordability.',
-  'Blends online learning with offline support and real mentorship.',
-  'Built to help students progress from preparation to professional aviation pathways.',
+const feeBreakdown = [
+  { label: 'Aviation Meteorology', amount: '₹35,000' },
+  { label: 'Air Navigation', amount: '₹55,000' },
+  { label: 'Radio Telephony (RTR)', amount: '₹40,000' },
+  { label: 'Air Regulations', amount: '₹40,000' },
+  { label: 'Technical General', amount: '₹50,000' },
 ];
 
-const examCourseOptions = [
-  'Air Navigation - DGCA CPL Examination',
-  'Aviation Meteorology - DGCA CPL Examination',
-  'Air Regulations - DGCA CPL Examination',
+const packageOptions = [
+  {
+    title: 'India Track',
+    description: 'Full ground school training for cadets staying in India.',
+    price: '₹2,20,000',
+  },
+  {
+    title: 'Foreign Track',
+    description: 'Course guidance for overseas pilot training programs.',
+    price: '₹1,70,000',
+  },
 ];
+
+const galleryImages = [
+  '/brochure/4.jpg',
+  '/brochure/1.jpg',
+  '/brochure/2.jpg',
+  '/brochure/3.jpg',
+  '/brochure/5.jpg',
+];
+
+const galleryVideos = ['video1.mp4', 'video2.mp4'];
+const playStoreUrl = 'https://play.google.com/store/apps/details?id=com.pilotpathshalanew.app&pcampaignid=web_share';
 
 export const LandingPage = () => {
   const navigate = useNavigate();
@@ -91,16 +107,20 @@ export const LandingPage = () => {
     name: '',
     email: '',
     phone: '',
+    track: contactTrackOptions[0],
+    message: '',
   });
   const [submitted, setSubmitted] = useState(false);
   const [submittingEnquiry, setSubmittingEnquiry] = useState(false);
   const [authMode, setAuthMode] = useState(null);
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [scrollProgress, setScrollProgress] = useState(0);
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [registerData, setRegisterData] = useState({
     name: '',
     email: '',
+    computerNumber: '',
     password: '',
     confirmPassword: '',
     selectedExamCourses: [],
@@ -109,14 +129,17 @@ export const LandingPage = () => {
     acceptedTerms: false,
   });
 
+  const keepVideoMuted = (event) => {
+    event.currentTarget.muted = true;
+    event.currentTarget.volume = 0;
+  };
+
   const normalizeDecimalInput = (value) => {
     const cleaned = String(value || '').replace(/[^0-9.]/g, '');
     if (!cleaned) return '';
-
     const parts = cleaned.split('.');
     const integerPart = parts[0] || '';
     const fractionalPart = parts.length > 1 ? parts.slice(1).join('') : '';
-
     if (parts.length === 1) return integerPart;
     if (cleaned.startsWith('.')) return `0.${fractionalPart}`;
     return `${integerPart}.${fractionalPart}`;
@@ -126,10 +149,51 @@ export const LandingPage = () => {
     const mode = searchParams.get('auth');
     if (mode === 'login' || mode === 'register') {
       setAuthMode(mode);
-      return;
+    } else {
+      setAuthMode(null);
     }
-    setAuthMode(null);
   }, [searchParams]);
+
+  useEffect(() => {
+    const revealItems = Array.from(document.querySelectorAll('[data-scroll-reveal]'));
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.16, rootMargin: '0px 0px -8% 0px' }
+    );
+
+    revealItems.forEach((item) => observer.observe(item));
+
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    let frame = 0;
+    const updateProgress = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        const scrollableHeight = document.documentElement.scrollHeight - window.innerHeight;
+        const nextProgress = scrollableHeight > 0 ? (window.scrollY / scrollableHeight) * 100 : 0;
+        setScrollProgress(Math.min(100, Math.max(0, nextProgress)));
+      });
+    };
+
+    updateProgress();
+    window.addEventListener('scroll', updateProgress, { passive: true });
+    window.addEventListener('resize', updateProgress);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', updateProgress);
+      window.removeEventListener('resize', updateProgress);
+    };
+  }, []);
 
   const openAuthModal = (mode) => {
     const nextParams = new URLSearchParams(searchParams);
@@ -159,18 +223,19 @@ export const LandingPage = () => {
     }));
   };
 
-  const handleSubmit = async (event, source = 'landing') => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-
     try {
       setSubmittingEnquiry(true);
       await apiClient.submitEnquiry({
         name: formData.name.trim(),
         email: formData.email.trim(),
         phone: formData.phone.trim(),
+        track: formData.track,
+        message: formData.message.trim(),
       });
       setSubmitted(true);
-      setFormData({ name: '', email: '', phone: '' });
+      setFormData({ name: '', email: '', phone: '', track: contactTrackOptions[0], message: '' });
       window.setTimeout(() => setSubmitted(false), 2500);
     } catch (error) {
       window.alert(error.message || 'Failed to submit enquiry.');
@@ -183,7 +248,6 @@ export const LandingPage = () => {
     event.preventDefault();
     setAuthError('');
     setAuthLoading(true);
-
     try {
       await login(loginData.email, loginData.password);
       navigate('/dashboard');
@@ -197,27 +261,18 @@ export const LandingPage = () => {
   const handleRegisterSubmit = async (event) => {
     event.preventDefault();
     setAuthError('');
-
     if (registerData.password !== registerData.confirmPassword) {
       setAuthError('Passwords do not match');
       return;
     }
-
-    if (!registerData.selectedExamCourses.length) {
-      setAuthError('Please select at least one exam course.');
-      return;
-    }
-
     if (registerData.hasStartedFlyingTraining === null) {
       setAuthError('Please select whether you have started flying training.');
       return;
     }
-
     if (!registerData.acceptedTerms) {
       setAuthError('Please accept the terms and conditions to continue.');
       return;
     }
-
     let parsedFlyingHours = null;
     if (registerData.hasStartedFlyingTraining) {
       parsedFlyingHours = Number.parseFloat(String(registerData.totalFlyingHours).trim());
@@ -225,20 +280,18 @@ export const LandingPage = () => {
         setAuthError('Please enter total flying hours (for example, 45 or 45.5).');
         return;
       }
-
       if (parsedFlyingHours < 0 || parsedFlyingHours > 20000) {
         setAuthError('Total flying hours must be between 0 and 20,000.');
         return;
       }
     }
-
     setAuthLoading(true);
-
     try {
       await register({
         name: registerData.name.trim(),
         email: registerData.email.trim(),
         password: registerData.password,
+        computerNumber: registerData.computerNumber.trim() || null,
         selectedExamCourses: registerData.selectedExamCourses,
         hasStartedFlyingTraining: Boolean(registerData.hasStartedFlyingTraining),
         totalFlyingHours: registerData.hasStartedFlyingTraining ? parsedFlyingHours : null,
@@ -252,273 +305,98 @@ export const LandingPage = () => {
   };
 
   return (
-    <div className="bg-[#f7f7f7] text-[#131313]">
-      <header className="sticky top-0 z-30 border-b border-[#e8e8e8] bg-white">
-          <div className="mx-auto flex max-w-[1600px] items-center justify-between px-6 py-5 lg:px-12">
-          <Link to="/" className="shrink-0">
-            <img src={logo} alt="Pilot Pathshala" className="h-16 w-auto object-contain" />
+    <div className="min-h-screen bg-[#fcf9f8] text-[#1c1b1b]" style={{ fontFamily: 'Montserrat, Hanken Grotesk, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+      <header className="fixed inset-x-0 top-0 z-30 border-b border-[#d7d7dc] bg-white/95 backdrop-blur-sm">
+        <div className="absolute inset-x-0 bottom-0 h-0.5 bg-[#000a1e]/5">
+          <div className="h-full bg-[#feb316] shadow-[0_0_18px_rgba(254,179,22,0.65)] transition-[width] duration-150 ease-out" style={{ width: `${scrollProgress}%` }} />
+        </div>
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 md:px-12">
+          <Link to="/" className="flex items-center gap-3">
+            <img src={logo} alt="Pilot Pathshala Logo" className="h-11 w-auto object-contain" />
+            <span className="hidden sm:inline-block text-base font-semibold uppercase tracking-[0.18em] text-[#1c1b1b]">Pilot Pathshala</span>
           </Link>
-
-          <nav className="flex items-center gap-4 text-sm font-medium sm:text-base">
-            <a href="#home" className="text-[#ff5a0a] transition hover:opacity-80">
-              Home
-            </a>
-            <button
-              type="button"
-              onClick={() => openAuthModal('login')}
-              className="rounded-full bg-[#ff5a0a] px-6 py-3 text-base font-medium text-white transition hover:bg-[#ea4f04]"
-            >
-              Login
-            </button>
+          <nav className="hidden lg:flex items-center gap-8 text-sm font-semibold text-[#1c1b1b]">
+            <a href="#about" className="transition hover:text-[#feb316]">About</a>
+            <a href="#pathway" className="transition hover:text-[#feb316]">Pathway</a>
+            <a href="#fees" className="transition hover:text-[#feb316]">Fees</a>
+            <a href="#contact" className="transition hover:text-[#feb316]">Contact</a>
+            <button type="button" onClick={() => openAuthModal('login')} className="rounded-full bg-[#feb316] px-6 py-2.5 text-sm font-bold uppercase tracking-[0.12em] text-[#1c1b1b] transition hover:bg-[#e4a700]">Login</button>
           </nav>
+          <button type="button" onClick={() => openAuthModal('login')} className="inline-flex lg:hidden items-center justify-center rounded-full bg-[#feb316] p-3 text-[#1c1b1b] transition hover:bg-[#e4a700]">
+            <span className="material-symbols-outlined text-2xl">login</span>
+          </button>
         </div>
       </header>
 
-      <main>
-        <section
-          id="home"
-          className="border-b border-[#ececec] bg-[radial-gradient(circle_at_left,_rgba(255,90,10,0.06),_transparent_22%),linear-gradient(180deg,_rgba(255,255,255,0.98),_rgba(255,255,255,0.96)),repeating-radial-gradient(circle_at_center,_rgba(15,23,42,0.05)_0,_rgba(15,23,42,0.05)_2px,_transparent_2px,_transparent_38px)]"
-        >
-          <div className="mx-auto grid min-h-[780px] max-w-[1600px] gap-16 px-6 py-14 lg:grid-cols-[1fr_0.95fr] lg:items-center lg:px-20">
-            <div className="max-w-2xl">
-              <p className="text-xl font-medium text-[#666666] sm:text-2xl">
-                Crafted for Curious Minds
-              </p>
-              <h1 className="mt-5 text-4xl font-semibold leading-[1.04] tracking-[-0.035em] sm:text-5xl lg:text-6xl">
-                Explore <span className="text-[#ff5a0a]">Pilot</span>
-                <br />
-                <span className="text-[#ff5a0a]">Pathshala</span>
+      <main className="pt-20">
+        <section className="relative overflow-hidden bg-[#000a1e] text-white">
+          <div className="absolute inset-0">
+            <img
+              src="/hero-pilot-pathshala-ai.png"
+              alt="Pilot Pathshala flight training"
+              className="h-full w-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#000a1e]/80 via-[#000a1e]/46 to-[#000a1e]/18" />
+          </div>
+
+          <div className="relative mx-auto flex min-h-[88vh] max-w-7xl items-center px-6 py-24 md:px-12 lg:py-32">
+            <div className="max-w-3xl space-y-8" data-scroll-reveal="hero">
+              <span className="inline-flex rounded-full bg-[#feb316] px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-[#1c1b1b] shadow-sm">Take Flight Today</span>
+              <h1 className="text-4xl font-extrabold leading-tight tracking-[-0.04em] sm:text-5xl md:text-6xl">
+                Become a <span className="text-[#feb316]">Commercial Pilot</span>
               </h1>
-              <p className="mt-5 max-w-xl text-lg font-normal leading-[1.6] text-[#5d5d5d] sm:text-xl">
-                Turning curiosity into clarity, We have everything that you need to grow
+              <p className="max-w-2xl text-lg leading-8 text-[#e6e6e8] sm:text-xl">
+                India&apos;s premier aviation academy for aspirants who want world-class mentorship, exam readiness, and real-world simulator training.
               </p>
-
-              <button
-                type="button"
-                onClick={() => openAuthModal('register')}
-                className="mt-8 inline-flex rounded-full bg-[#ff5a0a] px-8 py-3.5 text-lg font-medium text-white transition hover:bg-[#ea4f04]"
-              >
-                Get Started
-              </button>
-            </div>
-
-            <div className="rounded-[2rem] border border-[#e8e8e8] bg-white p-6 shadow-[0_10px_40px_rgba(0,0,0,0.06)] sm:p-10">
-              <h2 className="text-3xl font-semibold sm:text-4xl">Get in touch</h2>
-
-              {submitted && (
-                <div className="mt-6 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-                  Enquiry received. We will get in touch soon.
-                </div>
-              )}
-
-              <form onSubmit={(event) => handleSubmit(event, 'landing-hero')} className="mt-8 space-y-7">
-                <div>
-                  <label className="mb-3 block text-base font-medium text-[#545b78] sm:text-lg">
-                    Your Name <span className="text-[#ff5a0a]">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(event) => setFormData({ ...formData, name: event.target.value })}
-                    placeholder="Enter your Name"
-                    className="w-full rounded-2xl border border-[#e2e5ee] px-5 py-4 text-lg text-[#444] outline-none transition focus:border-[#ff5a0a]"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-3 block text-base font-medium text-[#545b78] sm:text-lg">
-                    Your Email <span className="text-[#ff5a0a]">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(event) => setFormData({ ...formData, email: event.target.value })}
-                    placeholder="Enter your email"
-                    className="w-full rounded-2xl border border-[#e2e5ee] px-5 py-4 text-lg text-[#444] outline-none transition focus:border-[#ff5a0a]"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-3 block text-base font-medium text-[#545b78] sm:text-lg">
-                    Your Mobile Number <span className="text-[#ff5a0a]">*</span>
-                  </label>
-                  <div className="flex overflow-hidden rounded-2xl border border-[#d8dde9]">
-                    <div className="flex items-center gap-2 border-r border-[#d8dde9] px-4 text-lg text-[#323232]">
-                      <span className="text-xl">🇮🇳</span>
-                      <span>+91</span>
-                      <ChevronDown size={18} />
-                    </div>
-                    <input
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(event) => setFormData({ ...formData, phone: event.target.value })}
-                      placeholder="074104 10123"
-                      className="w-full px-5 py-4 text-lg text-[#444] outline-none"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={submittingEnquiry}
-                  className="w-full rounded-full bg-[#ff5a0a] px-6 py-4 text-xl font-medium text-white transition hover:bg-[#ea4f04]"
-                >
-                  {submittingEnquiry ? 'Submitting...' : 'Submit Enquiry'}
+              <div className="flex flex-col gap-4 sm:flex-row">
+                <button type="button" onClick={() => openAuthModal('register')} className="inline-flex items-center justify-center gap-3 rounded-full bg-[#feb316] px-8 py-4 text-sm font-bold uppercase tracking-[0.12em] text-[#1c1b1b] shadow-lg transition hover:bg-[#e4a700]">
+                  Explore Pathway
+                  <span className="material-symbols-outlined text-base">flight_takeoff</span>
                 </button>
-
-                <p className="text-base leading-7 text-[#8c8c8c]">
-                  By providing your contact details, You agreed to our{' '}
-                  <Link to="/privacy-policy" className="font-medium text-[#ff5a0a]">
-                    Privacy Policy
-                  </Link>{' '}
-                  and{' '}
-                  <Link to="/terms-of-use" className="font-medium text-[#ff5a0a]">
-                    Terms of Service
-                  </Link>
-                </p>
-              </form>
+                <button type="button" onClick={() => openAuthModal('register')} className="inline-flex items-center justify-center gap-3 rounded-full border border-white/30 bg-white/10 px-8 py-4 text-sm font-bold uppercase tracking-[0.12em] text-white transition hover:bg-white/20">
+                  Start Learning
+                  <span className="material-symbols-outlined text-base">school</span>
+                </button>
+              </div>
             </div>
+          </div>
+
+          <div className="absolute inset-x-0 bottom-0 overflow-hidden leading-[0]">
+            <svg viewBox="0 0 1440 120" className="h-[120px] w-full" preserveAspectRatio="none">
+              <path d="M0,0 C320,120 760,0 1440,100 L1440,120 L0,120 Z" fill="#fcf9f8" />
+            </svg>
           </div>
         </section>
 
-        <section
-          id="overview"
-          className="relative overflow-hidden px-6 py-20 lg:px-12 lg:py-24"
-        >
-          <div className="absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_top,rgba(255,90,10,0.12),transparent_60%)]" />
-          <div className="mx-auto max-w-[1280px]">
-            <div className="rounded-[2.25rem] border border-[#f3ddd0] bg-[linear-gradient(180deg,#fffdfa_0%,#fff8f4_100%)] p-8 shadow-[0_20px_70px_rgba(255,90,10,0.08)] sm:p-10 lg:p-14">
-              <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
-                <div>
-                  <div className="inline-flex items-center gap-2 rounded-full border border-[#ffd6c1] bg-white px-4 py-2 text-sm font-medium text-[#d85a18]">
-                    <BadgeCheck size={18} />
-                    Built for future pilots
-                  </div>
-
-                  <h2 className="mt-6 max-w-3xl text-4xl  leading-[1.05] tracking-[-0.04em] text-[#151515] sm:text-5xl lg:text-6xl">
-                    Professional pilot training, made clear and accessible.
-                  </h2>
-
-                  <p className="mt-6 max-w-2xl text-lg leading-8 text-[#5f657d] sm:text-xl">
-                    Learn with a program that is easier to understand, more practical to follow, and
-                    designed to help you move from DGCA preparation to real flying opportunities with confidence.
-                  </p>
-
-                  <div className="mt-8 flex flex-wrap gap-4">
-                    <a
-                      href="#connect"
-                      className="inline-flex items-center gap-2 rounded-full bg-[#ff5a0a] px-7 py-3.5 text-base font-medium text-white transition hover:bg-[#ea4f04]"
-                    >
-                      Talk to our team
-                      <ArrowRight size={18} />
-                    </a>
-                    <button
-                      type="button"
-                      onClick={() => openAuthModal('register')}
-                      className="inline-flex items-center gap-2 rounded-full border border-[#ffd6c1] bg-white px-7 py-3.5 text-base font-medium text-[#cb4f13] transition hover:bg-[#fff2ea]"
-                    >
-                      Start learning
-                    </button>
-                  </div>
-
-                  <div className="mt-10 grid gap-4 sm:grid-cols-3">
-                    {learningStats.map((stat) => (
-                      <div
-                        key={stat.label}
-                        className="rounded-[1.5rem] border border-[#f3e2d7] bg-white px-5 py-5 shadow-[0_10px_30px_rgba(17,17,17,0.04)]"
-                      >
-                        <div className="text-2xl font-semibold text-[#111111]">{stat.value}</div>
-                        <p className="mt-2 text-sm leading-6 text-[#6a6f86]">{stat.label}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="rounded-[2rem] border border-[#f2ded2] bg-[#111111] p-6 text-white shadow-[0_20px_60px_rgba(0,0,0,0.18)] sm:p-8">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-sm font-medium uppercase tracking-[0.2em] text-[#ffb184]">
-                        Why students choose us
-                      </p>
-                      <h3 className="mt-3 text-3xl leading-tight">
-                        A training system that is easier to trust and easier to follow
-                      </h3>
-                    </div>
-                    <ShieldCheck className="mt-1 h-9 w-9 shrink-0 text-[#ff8a4d]" />
-                  </div>
-
-                  <div className="mt-8 space-y-4">
-                    {trustPoints.map((point) => (
-                      <div
-                        key={point}
-                        className="flex gap-3 rounded-[1.25rem] border border-white/10 bg-white/5 px-4 py-4"
-                      >
-                        <CheckCircle2 className="mt-1 h-5 w-5 shrink-0 text-[#ff9d6b]" />
-                        <p className="text-base leading-7 text-white/82">{point}</p>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-8 rounded-[1.5rem] border border-[#3f3f3f] bg-white/5 p-5">
-                    <div className="flex items-center gap-3">
-                      <Globe2 className="h-6 w-6 text-[#ff9d6b]" />
-                      <p className="text-lg font-medium">International pathway support</p>
-                    </div>
-                    <p className="mt-3 text-base leading-7 text-white/75">
-                      What sets us apart is our in-house flying base access in the USA and Philippines,
-                      backed by academic support and mentorship throughout the journey.
-                    </p>
-                  </div>
-                </div>
+        <section id="about" className="bg-[#fcf9f8] py-[100px]">
+          <div className="mx-auto max-w-7xl px-6 md:px-12">
+            <div className="grid gap-20 lg:grid-cols-2 lg:items-center">
+              <div className="relative aspect-[4/3] overflow-hidden rounded-[2rem] border-8 border-white bg-[#000a1e] shadow-[0_30px_80px_rgba(0,10,30,0.15)]" data-scroll-reveal>
+                <img
+                  src="/brochure/3.jpg"
+                  alt="Pilot Pathshala cadet group"
+                  className="h-full w-full object-cover"
+                />
               </div>
 
-              <div className="mt-16 grid gap-6 lg:grid-cols-4">
-                {trainingPoints.map((point) => {
-                  const Icon = point.icon;
-
-                  return (
-                    <div
-                      key={point.title}
-                      className="group rounded-[1.7rem] border border-[#f1e2d9] bg-white p-6 shadow-[0_12px_30px_rgba(17,17,17,0.04)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(255,90,10,0.12)]"
-                    >
-                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fff1e8] text-[#ff5a0a] transition group-hover:bg-[#ff5a0a] group-hover:text-white">
-                        <Icon size={26} />
-                      </div>
-                      <h3 className="mt-5 text-xl font-medium text-[#151515]">{point.title}</h3>
-                      <p className="mt-3 text-base leading-7 text-[#626883]">{point.description}</p>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="mt-16 grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
-                <div>
-                  <p className="text-sm font-medium uppercase tracking-[0.22em] text-[#cc6a34]">
-                    Learning journey
-                  </p>
-                  <h3 className="mt-3 text-3xl font-semibold text-[#141414] sm:text-4xl">
-                    Understand the path before you commit to it
-                  </h3>
-                  <p className="mt-4 max-w-xl text-lg leading-8 text-[#5f657d]">
-                    Instead of leaving students overwhelmed, we structure the journey into clear stages so
-                    they know what to do first, what to improve next, and where the path leads.
+              <div className="space-y-8" data-scroll-reveal>
+                <div className="space-y-4">
+                  <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#feb316]">Our vision</p>
+                  <h2 className="text-4xl font-bold tracking-[-0.03em] text-[#1c1b1b] sm:text-5xl">Beyond Academics: Creating Industry-Ready Aviators</h2>
+                  <p className="max-w-xl text-lg leading-8 text-[#44474e]">
+                    Pilot Pathshala is a premier pilot training institute built with a vision to create highly skilled, knowledgeable, and industry-ready aviators for the future of aviation.
                   </p>
                 </div>
-
-                <div className="grid gap-4">
-                  {pathwaySteps.map((item) => (
-                    <div
-                      key={item.step}
-                      className="rounded-[1.5rem] border border-[#f1e2d9] bg-white px-5 py-5 shadow-[0_10px_24px_rgba(17,17,17,0.04)]"
-                    >
-                      <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#ff5a0a]">
-                        {item.step}
-                      </p>
-                      <h4 className="mt-2 text-xl font-medium text-[#171717]">{item.title}</h4>
-                      <p className="mt-2 text-base leading-7 text-[#626883]">{item.description}</p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {aboutHighlights.map((item) => (
+                    <div key={item.title} className="flex gap-4 rounded-3xl border border-[#e5e5e5] bg-white p-6 shadow-sm" data-scroll-reveal>
+                      <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#000a1e] text-[#feb316]">
+                        <span className="material-symbols-outlined text-2xl">{item.icon}</span>
+                      </div>
+                      <div>
+                        <h3 className="text-base font-semibold text-[#1c1b1b]">{item.title}</h3>
+                        <p className="mt-2 text-sm leading-6 text-[#5f6670]">{item.description}</p>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -527,112 +405,359 @@ export const LandingPage = () => {
           </div>
         </section>
 
-        <section id="connect" className="px-6 py-8 lg:px-12 lg:py-12">
-          <div className="mx-auto max-w-[1180px] rounded-[1.8rem] bg-black p-6 text-white sm:p-10 lg:p-14">
-            <div className="grid gap-10 lg:grid-cols-[0.78fr_1.22fr] lg:items-start">
-              <div>
-                <h3 className="text-3xl font-semibold">Head Office</h3>
-                <div className="mt-8 flex gap-3 text-lg leading-9 text-white/95">
-                  <MapPin className="mt-1 h-6 w-6 shrink-0" />
-                  <p>Royal Rudra, Income Tax Colony, L-4, Hingna Rd, Rajendra Nagar, Vasudev Nagar, Nagpur, Maharashtra 440036</p>
+        <section className="bg-[#f7f7f7] py-[100px]">
+          <div className="mx-auto max-w-7xl px-6 md:px-12">
+            <div className="grid gap-20 lg:grid-cols-2 lg:items-center">
+              <div className="space-y-8" data-scroll-reveal>
+                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#feb316]">Digital Excellence</p>
+                <h2 className="text-4xl font-bold tracking-[-0.03em] text-[#1c1b1b] sm:text-5xl">Learn Anywhere, Anytime with our E-Learning Portal</h2>
+                <p className="max-w-xl text-lg leading-8 text-[#44474e]">
+                  Access comprehensive ground school materials, recorded lectures, and interactive mock exams from the comfort of your home.
+                </p>
+                <div className="space-y-4">
+                  {[
+                    { title: 'Recorded Sessions', description: 'Replay expert-led classes at your own pace.' },
+                    { title: 'Online Question Bank', description: 'Practice with thousands of DGCA-pattern mock questions.' },
+                    { title: 'Digital Study Material', description: 'Instant access to curated aviation manuals and notes.' },
+                  ].map((item) => (
+                    <div key={item.title} className="rounded-3xl border border-[#e5e5e5] bg-white p-6 shadow-sm" data-scroll-reveal>
+                      <h3 className="text-base font-semibold text-[#1c1b1b]">{item.title}</h3>
+                      <p className="mt-3 text-sm leading-6 text-[#5f6670]">{item.description}</p>
+                    </div>
+                  ))}
                 </div>
-
-                <h4 className="mt-14 text-2xl font-semibold">Support Enquiries</h4>
-                <div className="mt-6 flex items-center gap-3 text-lg text-white/95">
-                  <Mail className="h-6 w-6 shrink-0" />
-                  <p>mail@pilotpathshala.com</p>
+                <button type="button" onClick={() => openAuthModal('register')} className="inline-flex items-center justify-center gap-3 rounded-full bg-[#000a1e] px-8 py-4 text-sm font-bold uppercase tracking-[0.12em] text-white shadow-lg transition hover:bg-[#262a33]">
+                  Start Learning
+                </button>
+              </div>
+              <div className="" data-scroll-reveal>
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(254,179,22,0.22),transparent_36%)]" />
+                <div className="relative grid gap-6 md:grid-cols-2">
+                  {[
+                    {
+                      platform: 'iPhone',
+                      eyebrow: 'Get it on',
+                      store: 'App Store',
+                      href: null,
+                      icon: 'phone_iphone',
+                      device: 'ios',
+                      badgeIcon: 'amp_stories',
+                      screenClass: 'from-[#f9fafb] via-[#dfe8ff] to-[#feb316]/40',
+                    },
+                    {
+                      platform: 'Android',
+                      eyebrow: 'Get it on',
+                      store: 'Google Play',
+                      href: playStoreUrl,
+                      icon: 'android',
+                      device: 'android',
+                      badgeIcon: 'shop',
+                      screenClass: 'from-[#f8fbf7] via-[#dff5e8] to-[#feb316]/35',
+                    },
+                  ].map((item) => (
+                    <div key={item.platform} className="flex min-h-[30rem] flex-col justify-between rounded-[1.75rem] border border-white/10 bg-[#111a2b] p-6 text-white shadow-[0_18px_45px_rgba(0,0,0,0.22)]">
+                      <div className={`relative mx-auto h-[21rem] w-full max-w-[12.25rem] rounded-[2.35rem] bg-[#0b1220] p-[0.65rem] shadow-[0_24px_55px_rgba(0,0,0,0.42),inset_0_0_0_1px_rgba(255,255,255,0.12)] ${item.device === 'ios' ? 'border-[5px] border-[#202938]' : 'border-[4px] border-[#151c2a]'}`}>
+                        <span className="absolute -left-[0.45rem] top-[4.5rem] h-8 w-1 rounded-l-full bg-[#2a3446]" />
+                        <span className="absolute -left-[0.45rem] top-[7.1rem] h-12 w-1 rounded-l-full bg-[#2a3446]" />
+                        <span className="absolute -right-[0.45rem] top-[6rem] h-14 w-1 rounded-r-full bg-[#2a3446]" />
+                        <div className={`relative flex h-full flex-col justify-between overflow-hidden bg-gradient-to-br ${item.screenClass} p-4 text-[#000a1e] shadow-[inset_0_0_28px_rgba(0,10,30,0.1)] ${item.device === 'ios' ? 'rounded-[1.75rem]' : 'rounded-[1.45rem]'}`}>
+                          {item.device === 'ios' ? (
+                            <div className="absolute left-1/2 top-2 z-10 h-6 w-20 -translate-x-1/2 rounded-full bg-[#030917] shadow-sm">
+                              <span className="absolute right-3 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-[#1f2937]" />
+                            </div>
+                          ) : (
+                            <>
+                              <span className="absolute left-1/2 top-3 z-10 h-1.5 w-12 -translate-x-1/2 rounded-full bg-[#0b1220]/25" />
+                              <span className="absolute right-5 top-4 z-10 h-2.5 w-2.5 rounded-full border border-white/70 bg-[#030917]" />
+                            </>
+                          )}
+                          <div>
+                            <div className="mt-10 inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#000a1e] text-[#feb316]">
+                              <span className="material-symbols-outlined text-2xl">{item.icon}</span>
+                            </div>
+                            <p className="mt-5 text-xs font-bold uppercase tracking-[0.2em] text-[#5f6670]">Pilot Pathshala</p>
+                            <h3 className="mt-2 text-2xl font-black leading-tight">{item.platform} App</h3>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="h-2 rounded-full bg-[#000a1e]/20" />
+                            <div className="h-2 w-3/4 rounded-full bg-[#000a1e]/15" />
+                            <div className="grid grid-cols-3 gap-2 pt-2">
+                              <span className="h-10 rounded-xl bg-white/60" />
+                              <span className="h-10 rounded-xl bg-white/60" />
+                              <span className="h-10 rounded-xl bg-white/60" />
+                            </div>
+                            {item.device === 'ios' ? (
+                              <span className="mx-auto mt-3 block h-1 w-20 rounded-full bg-[#000a1e]/35" />
+                            ) : (
+                              <div className="mx-auto mt-3 flex w-24 items-center justify-center gap-4 text-[#000a1e]/35">
+                                <span className="h-2 w-2 rounded-full border border-current" />
+                                <span className="h-1 w-8 rounded-full bg-current" />
+                                <span className="h-2 w-2 rotate-45 border-b border-r border-current" />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      {item.href ? (
+                        <a href={item.href} target="_blank" rel="noreferrer" className="mt-6 inline-flex w-full items-center gap-4 rounded-2xl border border-white/10 bg-[#feb316] px-5 py-4 text-left text-[#1c1b1b] shadow-lg transition hover:bg-[#e4a700]">
+                          <span className="material-symbols-outlined text-3xl">{item.badgeIcon}</span>
+                          <span>
+                            <span className="block text-xs font-semibold uppercase tracking-[0.2em] text-[#1c1b1b]/70">{item.eyebrow}</span>
+                            <span className="block text-lg font-black leading-tight">{item.store}</span>
+                          </span>
+                        </a>
+                      ) : (
+                        <button type="button" disabled className="mt-6 inline-flex w-full cursor-not-allowed items-center gap-4 rounded-2xl border border-white/10 bg-[#111a2b] px-5 py-4 text-left text-white/70 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]">
+                          <span className="material-symbols-outlined text-3xl">{item.badgeIcon}</span>
+                          <span>
+                            <span className="block text-xs font-semibold uppercase tracking-[0.2em] text-white/45">{item.eyebrow}</span>
+                            <span className="block text-lg font-black leading-tight text-white/80">{item.store}</span>
+                          </span>
+                        </button>
+                      )}
+                    </div>
+                  ))}
                 </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
-                <div className="mt-8 rounded-[1.6rem] border border-white/10 bg-white/5 p-6">
-                  <p className="text-sm font-medium uppercase tracking-[0.18em] text-white/55">
-                    Visit our office
-                  </p>
-                  <p className="mt-4 max-w-md text-base leading-8 text-white/85">
-                    Royal Rudra, Income Tax Colony, L-4, Hingna Rd, Rajendra Nagar, Vasudev Nagar,
-                    Nagpur, Maharashtra 440036
-                  </p>
-                  <a
-                    href="https://www.google.com/maps/search/?api=1&query=Royal%20Rudra%2C%20Income%20Tax%20Colony%2C%20L-4%2C%20Hingna%20Rd%2C%20Rajendra%20Nagar%2C%20Vasudev%20Nagar%2C%20Nagpur%2C%20Maharashtra%20440036"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-medium text-[#111111] transition hover:bg-[#f3f3f3]"
-                  >
-                    Open in Google Maps
-                    <ExternalLink size={16} />
-                  </a>
+        <section id="pathway" className="bg-[#fcf9f8] py-[100px]">
+          <div className="mx-auto max-w-7xl px-6 md:px-12">
+            <div className="text-center mb-16" data-scroll-reveal>
+              <h2 className="text-4xl font-bold tracking-[-0.03em] text-[#1c1b1b] sm:text-5xl">Your Roadmap to the Skies</h2>
+              <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#44474e]">
+                A structured path regulated by the DGCA India for becoming a Commercial Pilot.
+              </p>
+            </div>
+            <div className="grid gap-6 md:grid-cols-5">
+              {pathwaySteps.map((step) => (
+                <div key={step.number} className="relative overflow-hidden rounded-[2rem] border border-[#e5e5e5] bg-white p-8 text-center shadow-sm" data-scroll-reveal>
+                  <div className="absolute right-6 top-6 text-[4.5rem] font-black text-[#000a1e]/10">
+                    {step.number}
+                  </div>
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#feb316]/10 text-[#feb316] text-2xl font-bold">
+                    {step.number}
+                  </div>
+                  <h3 className="mt-6 text-base font-semibold text-[#1c1b1b]">{step.title}</h3>
+                  <div className="mt-5 space-y-2 text-sm leading-6 text-[#5f6670]">
+                    {step.items.map((item) => (
+                      <p key={item}>{item}</p>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* <section id="fees" className="bg-[#ffffff] py-[100px]">
+          <div className="mx-auto max-w-7xl px-6 md:px-12">
+            <div className="grid gap-8 lg:grid-cols-3">
+              <div className="rounded-[2rem] bg-[#000a1e] p-10 text-white shadow-[0_30px_80px_rgba(0,10,30,0.18)]">
+                <h3 className="text-2xl font-semibold">Transparent Fee Structure</h3>
+                <p className="mt-4 text-sm leading-7 text-[#d1d5db]">
+                  Investing in your future as a high-caliber aviator.
+                </p>
+                <div className="mt-8 space-y-4 text-sm">
+                  {feeBreakdown.map((item) => (
+                    <div key={item.label} className="flex items-center justify-between border-b border-white/10 pb-4">
+                      <span>{item.label}</span>
+                      <span className="font-semibold text-[#feb316]">{item.amount}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              <div className="rounded-[1.8rem] bg-white p-6 text-[#181818] sm:p-8 lg:p-10">
-                <h3 className="text-3xl font-semibold sm:text-4xl">Connect with us</h3>
-
-                <form onSubmit={(event) => handleSubmit(event, 'landing-contact')} className="mt-8 space-y-7">
-                  <div>
-                    <label className="mb-3 block text-base font-normal sm:text-lg">
-                      Your Name <span className="text-[#ff5a0a]">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.name}
-                      onChange={(event) => setFormData({ ...formData, name: event.target.value })}
-                      placeholder="Enter your name"
-                      className="w-full rounded-2xl border border-[#d5d5d5] px-5 py-4 text-lg outline-none transition focus:border-[#ff5a0a]"
-                      required
-                    />
+              <div className="lg:col-span-2 grid gap-6 md:grid-cols-2">
+                {packageOptions.map((pkg) => (
+                  <div key={pkg.title} className="rounded-[2rem] border border-[#e5e5e5] bg-white p-8 shadow-sm">
+                    <h4 className="text-2xl font-bold text-[#1c1b1b]">{pkg.title}</h4>
+                    <p className="mt-4 text-sm leading-7 text-[#5f6670]">{pkg.description}</p>
+                    <div className="mt-8 text-4xl font-extrabold text-[#1c1b1b]">{pkg.price}</div>
+                    <div className="mt-6 text-xs uppercase tracking-[0.2em] text-[#9e9e9e]">Total Package</div>
+                    <button type="button" className="mt-8 w-full rounded-2xl border border-[#1c1b1b] bg-white py-4 text-sm font-semibold text-[#1c1b1b] transition hover:bg-[#1c1b1b] hover:text-white">
+                      Select Plan
+                    </button>
                   </div>
-
-                  <div>
-                    <label className="mb-3 block text-base font-normal sm:text-lg">
-                      Your Email <span className="text-[#ff5a0a]">*</span>
-                    </label>
-                    <input
-                      type="email"
-                      value={formData.email}
-                      onChange={(event) => setFormData({ ...formData, email: event.target.value })}
-                      placeholder="Enter your email"
-                      className="w-full rounded-2xl border border-[#d5d5d5] px-5 py-4 text-lg outline-none transition focus:border-[#ff5a0a]"
-                      required
-                    />
+                ))}
+                <div className="rounded-[2rem] border border-[#feb316]/25 bg-[#fff2d6] p-8">
+                  <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-[#feb316] text-[#1c1b1b] text-3xl">
+                    <span className="material-symbols-outlined">redeem</span>
                   </div>
+                  <h4 className="mt-6 text-lg font-semibold text-[#1c1b1b]">Bonus Inclusion</h4>
+                  <p className="mt-4 text-sm leading-7 text-[#5f6670]">Every package includes 40 Hours of Flight Simulator Training at no extra cost.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section> */}
 
-                  <div>
-                    <label className="mb-3 block text-base font-normal sm:text-lg">
-                      Your Mobile Number <span className="text-[#ff5a0a]">*</span>
-                    </label>
-                    <div className="flex overflow-hidden rounded-2xl border border-[#d5d5d5]">
-                      <div className="flex items-center gap-2 border-r border-[#d5d5d5] px-4 text-lg">
-                        <span className="text-xl">🇮🇳</span>
-                        <span>+91</span>
-                        <ChevronDown size={18} />
+        <section className="bg-[#0c1831] py-[70px] text-white">
+          <div className="mx-auto max-w-7xl px-6 md:px-12">
+            <div className="text-center mb-16" data-scroll-reveal>
+              <h2 className="text-4xl font-bold tracking-[-0.03em] sm:text-5xl">Students Become Family</h2>
+              <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#c6c9d9]">Life at the academy is more than just learning; it&apos;s about building a brotherhood of aviators.</p>
+            </div>
+            <div className="grid auto-rows-[12rem] grid-cols-2 gap-3 sm:auto-rows-[14rem] md:grid-cols-4 lg:grid-cols-12 lg:auto-rows-[10rem] lg:gap-4">
+              <div className="col-span-2 row-span-2 overflow-hidden rounded-3xl shadow-[0_24px_70px_rgba(0,0,0,0.22)] md:col-span-2 lg:col-span-4 lg:row-span-2" data-scroll-reveal>
+                <img src={galleryImages[0]} alt="Student life cockpit" className="h-full w-full object-cover transition duration-500 hover:scale-105" />
+              </div>
+
+              <div className="col-span-2 overflow-hidden rounded-3xl shadow-[0_22px_60px_rgba(0,0,0,0.18)] md:col-span-2 lg:col-span-4 lg:row-span-2" data-scroll-reveal>
+                <video
+                  src={`/videos/${galleryVideos[0]}`}
+                  controls
+                  muted
+                  defaultMuted
+                  onPlay={keepVideoMuted}
+                  onVolumeChange={keepVideoMuted}
+                  className="h-full w-full object-cover bg-black"
+                />
+              </div>
+
+              <div className="col-span-1 overflow-hidden rounded-3xl shadow-[0_18px_45px_rgba(0,0,0,0.16)] md:col-span-2 lg:col-span-4 lg:row-span-2" data-scroll-reveal>
+                <img src={galleryImages[1]} alt="Student life two" className="h-full w-full object-cover transition duration-500 hover:scale-105" />
+              </div>
+
+              <div className="col-span-2 overflow-hidden rounded-3xl shadow-[0_18px_45px_rgba(0,0,0,0.16)] md:col-span-2 lg:col-span-4 lg:row-span-2" data-scroll-reveal>
+                <img src={galleryImages[2]} alt="Pilot Pathshala cadets on the ramp" className="h-full w-full object-cover transition duration-500 hover:scale-105" />
+              </div>
+
+              <div className="col-span-2 overflow-hidden rounded-3xl bg-[#09122f] shadow-[0_22px_60px_rgba(0,0,0,0.2)] md:col-span-2 lg:col-span-4 lg:row-span-2" data-scroll-reveal>
+                <video
+                  src={`/videos/${galleryVideos[1]}`}
+                  controls
+                  muted
+                  defaultMuted
+                  onPlay={keepVideoMuted}
+                  onVolumeChange={keepVideoMuted}
+                  className="h-full w-full object-cover bg-black"
+                />
+              </div>
+
+              <div className="col-span-2 overflow-hidden rounded-3xl shadow-[0_18px_45px_rgba(0,0,0,0.16)] md:col-span-2 lg:col-span-4 lg:row-span-2" data-scroll-reveal>
+                <img src={galleryImages[4]} alt="Student life five" className="h-full w-full object-cover transition duration-500 hover:scale-105" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="contact" className="bg-[#fcf9f8] py-[90px]">
+          <div className="mx-auto max-w-7xl px-6 md:px-12">
+            <div className="grid gap-12 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
+              <div className="max-w-xl space-y-6" data-scroll-reveal>
+                <span className="text-[#feb316] text-[12px] font-bold uppercase tracking-[0.24em]">Get in touch</span>
+                <h2 className="text-4xl font-bold tracking-[-0.03em] text-[#1c1b1b] sm:text-5xl">Small team. Big results.</h2>
+                <p className="max-w-xl text-lg leading-8 text-[#44474e]">
+                  Send a quick enquiry and our admissions team will contact you with the fastest next step.
+                </p>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-3xl bg-white p-5 shadow-sm" data-scroll-reveal>
+                    <div className="flex items-start gap-4">
+                      <span className="material-symbols-outlined text-3xl text-[#feb316]">location_on</span>
+                      <div>
+                        <p className="text-sm font-semibold text-[#1c1b1b]">Nagpur campus</p>
+                        <p className="mt-2 text-sm leading-6 text-[#5f6670]">402, Royal Rudra, Vasudev Nagar, Hingna Road</p>
                       </div>
+                    </div>
+                  </div>
+                  <div className="rounded-3xl bg-white p-5 shadow-sm" data-scroll-reveal>
+                    <div className="flex items-start gap-4">
+                      <span className="material-symbols-outlined text-3xl text-[#feb316]">call</span>
+                      <div>
+                        <p className="text-sm font-semibold text-[#1c1b1b]">Admissions line</p>
+                        <p className="mt-2 text-sm leading-6 text-[#5f6670]">+91 76201 57166</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="rounded-3xl bg-white p-5 shadow-sm sm:col-span-2" data-scroll-reveal>
+                    <div className="flex items-start gap-4">
+                      <span className="material-symbols-outlined text-3xl text-[#feb316]">mail</span>
+                      <div>
+                        <p className="text-sm font-semibold text-[#1c1b1b]">Email support</p>
+                        <p className="mt-2 text-sm leading-6 text-[#5f6670]">mail@pilotpathshala.com</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[2rem] border border-[#e5e5e5] bg-white p-8 shadow-sm" data-scroll-reveal>
+                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#feb316]">Quick enquiry</p>
+                <h3 className="mt-4 text-2xl font-semibold text-[#1c1b1b]">Start your training in minutes</h3>
+                <p className="mt-3 text-sm leading-7 text-[#5f6670]">Fill the form and our team will help you choose the right pathway.</p>
+
+                <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <label className="block text-sm font-semibold text-[#1c1b1b]">
+                      Full Name
+                      <input
+                        type="text"
+                        value={formData.name}
+                        onChange={(event) => setFormData({ ...formData, name: event.target.value })}
+                        required
+                        className="mt-2 w-full rounded-2xl border border-[#c4c6cf] bg-[#fcf9f8] px-4 py-3 text-sm outline-none transition focus:border-[#feb316]"
+                      />
+                    </label>
+                    <label className="block text-sm font-semibold text-[#1c1b1b]">
+                      Email Address
+                      <input
+                        type="email"
+                        value={formData.email}
+                        onChange={(event) => setFormData({ ...formData, email: event.target.value })}
+                        required
+                        className="mt-2 w-full rounded-2xl border border-[#c4c6cf] bg-[#fcf9f8] px-4 py-3 text-sm outline-none transition focus:border-[#feb316]"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <label className="block text-sm font-semibold text-[#1c1b1b]">
+                      Phone Number
                       <input
                         type="tel"
                         value={formData.phone}
                         onChange={(event) => setFormData({ ...formData, phone: event.target.value })}
-                        className="w-full px-5 py-4 text-lg outline-none"
                         required
+                        className="mt-2 w-full rounded-2xl border border-[#c4c6cf] bg-[#fcf9f8] px-4 py-3 text-sm outline-none transition focus:border-[#feb316]"
                       />
-                    </div>
+                    </label>
+                    <label className="block text-sm font-semibold text-[#1c1b1b]">
+                      Interested Track
+                      <select
+                        value={formData.track}
+                        onChange={(event) => setFormData({ ...formData, track: event.target.value })}
+                        className="mt-2 w-full rounded-2xl border border-[#c4c6cf] bg-[#fcf9f8] px-4 py-3 text-sm outline-none transition focus:border-[#feb316]"
+                      >
+                        {contactTrackOptions.map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    </label>
                   </div>
+
+                  <label className="block text-sm font-semibold text-[#1c1b1b]">
+                    Message
+                    <textarea
+                      rows={4}
+                      value={formData.message}
+                      onChange={(event) => setFormData({ ...formData, message: event.target.value })}
+                      className="mt-2 w-full rounded-2xl border border-[#c4c6cf] bg-[#fcf9f8] px-4 py-3 text-sm outline-none transition focus:border-[#feb316]"
+                      placeholder="Tell us what you would like to learn next"
+                    />
+                  </label>
 
                   <button
                     type="submit"
                     disabled={submittingEnquiry}
-                    className="w-full rounded-full bg-[#ff5a0a] px-6 py-4 text-xl font-medium text-white transition hover:bg-[#ea4f04]"
+                    className="w-full rounded-2xl bg-[#feb316] px-6 py-4 text-sm font-bold uppercase tracking-[0.12em] text-[#1c1b1b] transition hover:bg-[#e4a700] disabled:opacity-60"
                   >
-                    {submittingEnquiry ? 'Submitting...' : 'Submit Enquiry'}
+                    {submittingEnquiry ? 'Sending...' : 'Send Inquiry'}
                   </button>
-
-                  <p className="text-base leading-7 text-[#959595]">
-                    By providing your contact details, You agreed to our{' '}
-                    <Link to="/privacy-policy" className="font-medium text-[#ff5a0a]">
-                      Privacy Policy
-                    </Link>{' '}
-                    and{' '}
-                    <Link to="/terms-of-use" className="font-medium text-[#ff5a0a]">
-                      Terms of Service
-                    </Link>.
-                  </p>
+                  {submitted && <p className="text-sm text-[#1c1b1b]/80">Thanks! We will contact you shortly.</p>}
                 </form>
               </div>
             </div>
@@ -640,45 +765,55 @@ export const LandingPage = () => {
         </section>
       </main>
 
-      <footer className="border-t border-[#e8e8e8] bg-[#f7f7f7] px-5 pb-8 pt-16 lg:px-12">
-        <div className="mx-auto max-w-[1600px]">
-          <div className="flex flex-col items-center justify-center">
-            <img src={logo} alt="Pilot Pathshala logo" className="h-24 w-auto object-contain" />
-            <a
-              href="https://www.instagram.com/pilot_pathshala?igsh=MWcwa2wwMzMzOTFwMQ%3D%3D&utm_source=qr"
-              target="_blank"
-              rel="noreferrer"
-              className="mt-8 text-[#111111] transition hover:text-[#ff5a0a]"
-            >
-              <Instagram size={34} />
-            </a>
+      <footer className="bg-[#000a1e] py-16 text-white">
+        <div className="mx-auto max-w-7xl px-6 md:px-12 lg:grid lg:grid-cols-4 lg:gap-12">
+          <div className="lg:col-span-2">
+            <div className="flex items-center gap-4">
+              <img src={logo} alt="Pilot Pathshala" className="h-14 w-auto object-contain" />
+              <span className="text-xl font-semibold uppercase tracking-[0.12em]">Pilot Pathshala</span>
+            </div>
+            <p className="mt-8 max-w-lg text-sm leading-7 text-white/70">
+              Empowering the next generation of pilots with practical training, exam readiness, and the confidence to succeed in Indian aviation.
+            </p>
           </div>
 
-          <div className="mt-14 flex flex-col gap-8 text-lg text-[#2a2a2a] lg:flex-row lg:items-end lg:justify-between">
-            <p className="flex flex-wrap items-center gap-2 leading-8">
-              <Copyright size={22} />
-              <span>Pilot Pathshala 2026. Designed by</span>
-              <span className="font-medium text-[#ff5a0a]">Nrich Learning</span>
-              <span>All rights reserved.</span>
-            </p>
+          <div>
+            <h5 className="text-sm font-semibold uppercase tracking-[0.18em] text-[#feb316]">Quick Links</h5>
+            <ul className="mt-6 space-y-4 text-sm text-white/70">
+              <li><a href="#about" className="transition hover:text-white">About</a></li>
+              <li><a href="#pathway" className="transition hover:text-white">Pathway</a></li>
+              <li><a href="#fees" className="transition hover:text-white">Fees</a></li>
+              <li><a href="#contact" className="transition hover:text-white">Contact</a></li>
+            </ul>
+          </div>
 
-            <div className="flex flex-wrap gap-x-10 gap-y-4">
-              <a href="#certificate" className="transition hover:text-[#ff5a0a]">
-                Validate Certificate
+          <div>
+            <h5 className="text-sm font-semibold uppercase tracking-[0.18em] text-[#feb316]">Download App</h5>
+            <div className="mt-6 flex flex-col gap-4">
+              <a href={playStoreUrl} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-white transition hover:bg-white/20">
+                <span className="material-symbols-outlined text-3xl">shop</span>
+                <div className="text-sm">
+                  <div className="uppercase tracking-[0.18em] text-white/60">Get it on</div>
+                  <div className="font-semibold">Google Play</div>
+                </div>
               </a>
-              <a href="#connect" className="transition hover:text-[#ff5a0a]">
-                Contact Us
-              </a>
-              <Link to="/terms-of-use" className="transition hover:text-[#ff5a0a]">
-                Terms of Service
-              </Link>
-              <Link
-                to="/privacy-policy"
-                className="transition hover:text-[#ff5a0a]"
-              >
-                Privacy Policy
-              </Link>
+              <button type="button" disabled className="flex cursor-not-allowed items-center gap-3 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-left text-white/55">
+                <span className="material-symbols-outlined text-3xl">amp_stories</span>
+                <div className="text-sm">
+                  <div className="uppercase tracking-[0.18em] text-white/60">Download on</div>
+                  <div className="font-semibold">App Store</div>
+                </div>
+              </button>
             </div>
+          </div>
+        </div>
+
+        <div className="mx-auto mt-16 max-w-7xl border-t border-white/10 px-6 pt-8 text-sm text-white/60 md:px-12 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <p>© 2024 Pilot Pathshala. India&apos;s Pathway To The Skies. All Rights Reserved.</p>
+          <div className="flex flex-wrap gap-6">
+            <a href="#" className="transition hover:text-white">Privacy Policy</a>
+            <a href="#" className="transition hover:text-white">Terms of Service</a>
+            <a href="#" className="transition hover:text-white">Refund Policy</a>
           </div>
         </div>
       </footer>
@@ -688,247 +823,111 @@ export const LandingPage = () => {
         target="_blank"
         rel="noreferrer"
         className="fixed bottom-6 right-6 z-30 flex h-16 w-16 items-center justify-center rounded-full bg-[#25D366] text-white shadow-[0_12px_25px_rgba(37,211,102,0.45)] transition hover:scale-105"
-        aria-label="Chat on WhatsApp"
+        aria-label="WhatsApp chat"
       >
         <MessageCircle size={34} />
       </a>
 
       {authMode && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4 backdrop-blur-[2px]">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
           <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[1.75rem] bg-white p-6 shadow-[0_24px_60px_rgba(0,0,0,0.22)] sm:p-8">
-            <button
-              type="button"
-              onClick={closeAuthModal}
-              className="absolute right-4 top-4 rounded-full p-1 text-[#6f6f6f] transition hover:bg-[#f4f4f4] hover:text-[#222]"
-              aria-label="Close auth modal"
-            >
+            <button type="button" onClick={closeAuthModal} className="absolute right-4 top-4 rounded-full p-1 text-[#6f6f6f] transition hover:bg-[#f4f4f4] hover:text-[#222]" aria-label="Close auth modal">
               <CircleX size={24} />
             </button>
-
-            <h2 className="pr-10 text-2xl font-semibold text-primary-900">
+            <h2 className="pr-10 text-2xl font-semibold text-[#1c1b1b]">
               {authMode === 'login' ? 'Welcome Back' : 'Create Account'}
             </h2>
-            <p className="mt-2 text-sm text-tertiary_text">
+            <p className="mt-2 text-sm text-[#6b7280]">
               {authMode === 'login' ? 'Sign in to continue to your dashboard.' : 'Join Pilot Pathshala and start learning.'}
             </p>
 
             {authError && (
-              <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-                {authError}
-              </div>
+              <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{authError}</div>
             )}
 
             {authMode === 'login' ? (
               <form onSubmit={handleLoginSubmit} className="mt-6 space-y-4">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-primary_text">Email</label>
-                  <input
-                    type="email"
-                    value={loginData.email}
-                    onChange={(event) => setLoginData({ ...loginData, email: event.target.value })}
-                    required
-                    className="w-full rounded-xl border border-border px-4 py-3 text-base focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
-                    placeholder="you@example.com"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-primary_text">Password</label>
-                  <input
-                    type="password"
-                    value={loginData.password}
-                    onChange={(event) => setLoginData({ ...loginData, password: event.target.value })}
-                    required
-                    className="w-full rounded-xl border border-border px-4 py-3 text-base focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
-                    placeholder="••••••••"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={authLoading}
-                  className="w-full rounded-full bg-[#ff5a0a] px-6 py-3.5 text-base font-medium text-white transition hover:bg-[#ea4f04] disabled:opacity-60"
-                >
-                  {authLoading ? 'Signing in...' : 'Sign In'}
-                </button>
-
-                <p className="text-center text-sm text-tertiary_text">
-                  Don&apos;t have an account?{' '}
-                  <button
-                    type="button"
-                    onClick={() => switchAuthMode('register')}
-                    className="font-medium text-[#ff5a0a]"
+                <label className="block text-sm font-medium text-[#374151]">
+                  Email
+                  <input type="email" value={loginData.email} onChange={(event) => setLoginData({ ...loginData, email: event.target.value })} required className="mt-2 w-full rounded-xl border border-[#d1d5db] px-4 py-3 text-base focus:border-[#feb316] focus:outline-none focus:ring-2 focus:ring-[#feb316]/20" placeholder="you@example.com" />
+                </label>
+                <label className="block text-sm font-medium text-[#374151]">
+                  Password
+                  <input type="password" value={loginData.password} onChange={(event) => setLoginData({ ...loginData, password: event.target.value })} required className="mt-2 w-full rounded-xl border border-[#d1d5db] px-4 py-3 text-base focus:border-[#feb316] focus:outline-none focus:ring-2 focus:ring-[#feb316]/20" placeholder="••••••••" />
+                </label>
+                <div className="flex justify-end">
+                  <Link
+                    to="/forgot-password"
+                    onClick={() => {
+                      setAuthError('');
+                      setAuthLoading(false);
+                      setAuthMode(null);
+                    }}
+                    className="text-sm font-medium text-[#feb316] hover:text-[#e4a700]"
                   >
-                    Sign up
-                  </button>
+                    Forgot password?
+                  </Link>
+                </div>
+                <button type="submit" disabled={authLoading} className="w-full rounded-full bg-[#feb316] px-6 py-3.5 text-base font-medium text-[#1c1b1b] transition hover:bg-[#e4a700] disabled:opacity-60">{authLoading ? 'Signing in...' : 'Sign In'}</button>
+                <p className="text-center text-sm text-[#6b7280]">Don&apos;t have an account?{' '}
+                  <button type="button" onClick={() => switchAuthMode('register')} className="font-medium text-[#feb316]">Sign up</button>
                 </p>
               </form>
             ) : (
               <form onSubmit={handleRegisterSubmit} className="mt-6 space-y-4">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-primary_text">Full Name</label>
-                  <input
-                    type="text"
-                    value={registerData.name}
-                    onChange={(event) => setRegisterData({ ...registerData, name: event.target.value })}
-                    required
-                    className="w-full rounded-xl border border-border px-4 py-3 text-base focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
-                    placeholder="John Doe"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-primary_text">Email</label>
-                  <input
-                    type="email"
-                    value={registerData.email}
-                    onChange={(event) => setRegisterData({ ...registerData, email: event.target.value })}
-                    required
-                    className="w-full rounded-xl border border-border px-4 py-3 text-base focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
-                    placeholder="you@example.com"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-primary_text">Password</label>
-                  <input
-                    type="password"
-                    value={registerData.password}
-                    onChange={(event) => setRegisterData({ ...registerData, password: event.target.value })}
-                    required
-                    className="w-full rounded-xl border border-border px-4 py-3 text-base focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
-                    placeholder="••••••••"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-primary_text">Confirm Password</label>
-                  <input
-                    type="password"
-                    value={registerData.confirmPassword}
-                    onChange={(event) => setRegisterData({ ...registerData, confirmPassword: event.target.value })}
-                    required
-                    className="w-full rounded-xl border border-border px-4 py-3 text-base focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
-                    placeholder="••••••••"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-primary_text">Exams Given</label>
-                  <div className="space-y-3 rounded-2xl border border-border bg-[#fafafa] p-4">
-                    {examCourseOptions.map((courseTitle) => {
-                      const selected = registerData.selectedExamCourses.includes(courseTitle);
-                      return (
-                        <button
-                          key={courseTitle}
-                          type="button"
-                          onClick={() => toggleRegisterCourse(courseTitle)}
-                          className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition ${
-                            selected
-                              ? 'border-[#ff5a0a] bg-[#fff1e8]'
-                              : 'border-[#e5e7eb] bg-white hover:border-[#ffb184]'
-                          }`}
-                        >
-                          <span className="pr-4 text-sm text-primary_text">{courseTitle}</span>
-                          <span
-                            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
-                              selected ? 'border-[#ff5a0a] bg-[#ff5a0a] text-white' : 'border-[#cbd5e1] bg-white text-transparent'
-                            }`}
-                          >
-                            <Check size={14} />
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-primary_text">Have you started flying training?</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setRegisterData((prev) => ({ ...prev, hasStartedFlyingTraining: true }))
-                      }
-                      className={`rounded-xl border px-4 py-3 text-sm font-medium transition ${
-                        registerData.hasStartedFlyingTraining === true
-                          ? 'border-[#ff5a0a] bg-[#fff1e8] text-[#d9480f]'
-                          : 'border-border bg-white text-primary_text'
-                      }`}
-                    >
-                      Yes
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setRegisterData((prev) => ({
-                          ...prev,
-                          hasStartedFlyingTraining: false,
-                          totalFlyingHours: '',
-                        }))
-                      }
-                      className={`rounded-xl border px-4 py-3 text-sm font-medium transition ${
-                        registerData.hasStartedFlyingTraining === false
-                          ? 'border-[#ff5a0a] bg-[#fff1e8] text-[#d9480f]'
-                          : 'border-border bg-white text-primary_text'
-                      }`}
-                    >
-                      No
-                    </button>
-                  </div>
-                </div>
-
-                {registerData.hasStartedFlyingTraining ? (
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-primary_text">Total Flying Hours</label>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={registerData.totalFlyingHours}
-                      onChange={(event) =>
-                        setRegisterData({ ...registerData, totalFlyingHours: normalizeDecimalInput(event.target.value) })
-                      }
-                      required
-                      className="w-full rounded-xl border border-border px-4 py-3 text-base focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
-                      placeholder="e.g. 45.5"
-                    />
-                  </div>
-                ) : null}
-
-                <label className="flex items-start gap-3 rounded-xl border border-border px-4 py-3 text-sm text-tertiary_text">
-                  <input
-                    type="checkbox"
-                    checked={registerData.acceptedTerms}
-                    onChange={(event) => setRegisterData({ ...registerData, acceptedTerms: event.target.checked })}
-                    className="mt-1 h-4 w-4 rounded border-border text-[#ff5a0a] focus:ring-[#ff5a0a]"
-                  />
-                  <span>
-                    I agree to Pilot Pathshala{' '}
-                    <Link to="/terms-of-use" className="font-medium text-[#ff5a0a]">
-                      Terms &amp; Condition
-                    </Link>
-                  </span>
+                <label className="block text-sm font-medium text-[#374151]">
+                  Full Name
+                  <input type="text" value={registerData.name} onChange={(event) => setRegisterData({ ...registerData, name: event.target.value })} required className="mt-2 w-full rounded-xl border border-[#d1d5db] px-4 py-3 text-base focus:border-[#feb316] focus:outline-none focus:ring-2 focus:ring-[#feb316]/20" placeholder="John Doe" />
                 </label>
-
-                <button
-                  type="submit"
-                  disabled={authLoading}
-                  className="w-full rounded-full bg-[#ff5a0a] px-6 py-3.5 text-base font-semibold text-white transition hover:bg-[#ea4f04] disabled:opacity-60"
-                >
-                  {authLoading ? 'Creating account...' : 'Sign Up'}
-                </button>
-
-                <p className="text-center text-sm text-tertiary_text">
-                  Already have an account?{' '}
-                  <button
-                    type="button"
-                    onClick={() => switchAuthMode('login')}
-                    className="font-semibold text-[#ff5a0a]"
-                  >
-                    Sign in
-                  </button>
-                </p>
+                <label className="block text-sm font-medium text-[#374151]">
+                  Email
+                  <input type="email" value={registerData.email} onChange={(event) => setRegisterData({ ...registerData, email: event.target.value })} required className="mt-2 w-full rounded-xl border border-[#d1d5db] px-4 py-3 text-base focus:border-[#feb316] focus:outline-none focus:ring-2 focus:ring-[#feb316]/20" placeholder="you@example.com" />
+                </label>
+                <label className="block text-sm font-medium text-[#374151]">
+                  Password
+                  <input type="password" value={registerData.password} onChange={(event) => setRegisterData({ ...registerData, password: event.target.value })} required className="mt-2 w-full rounded-xl border border-[#d1d5db] px-4 py-3 text-base focus:border-[#feb316] focus:outline-none focus:ring-2 focus:ring-[#feb316]/20" placeholder="••••••••" />
+                </label>
+                <label className="block text-sm font-medium text-[#374151]">
+                  Confirm Password
+                  <input type="password" value={registerData.confirmPassword} onChange={(event) => setRegisterData({ ...registerData, confirmPassword: event.target.value })} required className="mt-2 w-full rounded-xl border border-[#d1d5db] px-4 py-3 text-base focus:border-[#feb316] focus:outline-none focus:ring-2 focus:ring-[#feb316]/20" placeholder="••••••••" />
+                </label>
+                <div className="space-y-3 rounded-2xl border border-[#d1d5db] bg-[#fafafa] p-4">
+                  <p className="text-sm font-medium text-[#374151]">Exams Given <span className="text-[#9ca3af]">(optional)</span></p>
+                  {['PPL', 'CPL', 'ATPL'].map((courseTitle) => {
+                    const selected = registerData.selectedExamCourses.includes(courseTitle);
+                    return (
+                      <button type="button" key={courseTitle} onClick={() => toggleRegisterCourse(courseTitle)} className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition ${selected ? 'border-[#feb316] bg-[#fff2d6]' : 'border-[#e5e7eb] bg-white hover:border-[#feb316]'}`}>
+                        <span className="pr-4 text-sm text-[#374151]">{courseTitle}</span>
+                        <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${selected ? 'border-[#feb316] bg-[#feb316] text-white' : 'border-[#cbd5e1] bg-white text-transparent'}`}>
+                          <Check size={14} />
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <label className="block text-sm font-medium text-[#374151]">
+                  Computer Number <span className="text-[#9ca3af]">(optional)</span>
+                  <input type="text" value={registerData.computerNumber} onChange={(event) => setRegisterData({ ...registerData, computerNumber: event.target.value })} className="mt-2 w-full rounded-xl border border-[#d1d5db] px-4 py-3 text-base focus:border-[#feb316] focus:outline-none focus:ring-2 focus:ring-[#feb316]/20" placeholder="If available" />
+                </label>
+                <div>
+                  <span className="text-sm font-medium text-[#374151]">Have you started flying training?</span>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <button type="button" onClick={() => setRegisterData((prev) => ({ ...prev, hasStartedFlyingTraining: true }))} className={`rounded-xl border px-4 py-3 text-sm font-medium transition ${registerData.hasStartedFlyingTraining === true ? 'border-[#feb316] bg-[#fff2d6] text-[#924d00]' : 'border-[#d1d5db] bg-white text-[#374151]'}`}>Yes</button>
+                    <button type="button" onClick={() => setRegisterData((prev) => ({ ...prev, hasStartedFlyingTraining: false, totalFlyingHours: '' }))} className={`rounded-xl border px-4 py-3 text-sm font-medium transition ${registerData.hasStartedFlyingTraining === false ? 'border-[#feb316] bg-[#fff2d6] text-[#924d00]' : 'border-[#d1d5db] bg-white text-[#374151]'}`}>No</button>
+                  </div>
+                </div>
+                {registerData.hasStartedFlyingTraining ? (
+                  <label className="block text-sm font-medium text-[#374151]">
+                    Total Flying Hours
+                    <input type="text" inputMode="decimal" value={registerData.totalFlyingHours} onChange={(event) => setRegisterData({ ...registerData, totalFlyingHours: normalizeDecimalInput(event.target.value) })} required className="mt-2 w-full rounded-xl border border-[#d1d5db] px-4 py-3 text-base focus:border-[#feb316] focus:outline-none focus:ring-2 focus:ring-[#feb316]/20" placeholder="e.g. 45.5" />
+                  </label>
+                ) : null}
+                <label className="flex items-start gap-3 rounded-xl border border-[#d1d5db] px-4 py-3 text-sm text-[#6b7280]">
+                  <input type="checkbox" checked={registerData.acceptedTerms} onChange={(event) => setRegisterData({ ...registerData, acceptedTerms: event.target.checked })} className="mt-1 h-4 w-4 rounded border-[#d1d5db] text-[#feb316] focus:ring-[#feb316]" />
+                  <span>I agree to Pilot Pathshala{' '}<Link to="/terms-of-use" className="font-medium text-[#feb316]">Terms & Conditions</Link></span>
+                </label>
+                <button type="submit" disabled={authLoading} className="w-full rounded-full bg-[#feb316] px-6 py-3.5 text-base font-semibold text-[#1c1b1b] transition hover:bg-[#e4a700] disabled:opacity-60">{authLoading ? 'Creating account...' : 'Sign Up'}</button>
+                <p className="text-center text-sm text-[#6b7280]">Already have an account?{' '}<button type="button" onClick={() => switchAuthMode('login')} className="font-semibold text-[#feb316]">Sign in</button></p>
               </form>
             )}
           </div>

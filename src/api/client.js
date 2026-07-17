@@ -1,10 +1,11 @@
+// const API_URL = import.meta.env.VITE_API_URL || 'https://api.pilotpathshala.com/api';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002/api';
+
 
 const buildHeaders = (token) => {
   const headers = {
     'Content-Type': 'application/json'
   };
-
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
@@ -36,6 +37,8 @@ export const apiClient = {
   register: (payload) => request({ endpoint: '/auth/register', method: 'POST', body: payload }),
   login: (payload) => request({ endpoint: '/auth/login', method: 'POST', body: payload }),
   me: (token) => request({ endpoint: '/auth/me', token }),
+  forgotPassword: (payload) => request({ endpoint: '/auth/forgot-password', method: 'POST', body: payload }),
+  resetPassword: (token, payload) => request({ endpoint: `/auth/reset-password/${encodeURIComponent(token)}`, method: 'POST', body: payload }),
   getCourses: (token) => request({ endpoint: '/courses', token }),
   createCoursePurchaseOrder: (courseId, token) =>
     request({ endpoint: `/courses/${courseId}/purchase/order`, method: 'POST', token }),
@@ -60,7 +63,11 @@ export const apiClient = {
   submitEnquiry: (payload) => request({ endpoint: '/enquiries', method: 'POST', body: payload }),
 
   getTests: (token) => request({ endpoint: '/tests/available?mode=practice', token }),
-  getAvailableTests: (mode, token) => request({ endpoint: `/tests/available?mode=${mode}`, token }),
+  getAvailableTests: (mode, token, lessonId) =>
+    request({
+      endpoint: `/tests/available?mode=${mode}${lessonId ? `&lessonId=${encodeURIComponent(lessonId)}` : ''}`,
+      token
+    }),
   getCurrentQuestion: (mode, token, testId) =>
     request({
       endpoint: `/tests/current?mode=${mode}${testId ? `&testId=${encodeURIComponent(testId)}` : ''}`,

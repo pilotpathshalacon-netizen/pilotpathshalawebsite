@@ -3,15 +3,98 @@
 @import 'tailwindcss/utilities';
 
 * {
-  font-family: 'Poppins', system-ui, sans-serif;
+  font-family: 'Montserrat', 'Hanken Grotesk', system-ui, sans-serif;
 }
 
 body {
-  @apply bg-background;
+  @apply bg-surface text-on-surface;
 }
 
 html {
   scroll-behavior: smooth;
+}
+
+[data-scroll-reveal] {
+  position: relative;
+  opacity: 0;
+  transform: translate3d(0, 34px, 0);
+  transition:
+    opacity 700ms ease,
+    transform 700ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 700ms ease;
+  will-change: opacity, transform;
+}
+
+[data-scroll-reveal]::after {
+  content: '';
+  position: absolute;
+  right: 1rem;
+  bottom: -0.35rem;
+  left: 1rem;
+  height: 2px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(254, 179, 22, 0.88), transparent);
+  opacity: 0;
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+[data-scroll-reveal='hero'] {
+  transform: translate3d(0, 22px, 0) scale(0.985);
+}
+
+[data-scroll-reveal].is-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+}
+
+[data-scroll-reveal].is-visible::after {
+  animation: runway-sweep 900ms ease-out both;
+}
+
+@keyframes runway-sweep {
+  0% {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+  35% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-scroll-reveal] {
+    transition-delay: 80ms;
+  }
+
+  [data-scroll-reveal]:nth-child(2n) {
+    transition-delay: 140ms;
+  }
+
+  [data-scroll-reveal]:nth-child(3n) {
+    transition-delay: 200ms;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  [data-scroll-reveal],
+  [data-scroll-reveal='hero'] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  [data-scroll-reveal].is-visible::after {
+    animation: none;
+  }
 }
 
 @keyframes video-watermark-drift {
@@ -35,4 +118,56 @@ html {
 .video-watermark-live {
   animation: video-watermark-drift 22s ease-in-out infinite;
   will-change: transform;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 48;
+  vertical-align: middle;
+}
+
+.curved-divider {
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 100%;
+  overflow: hidden;
+  line-height: 0;
+  transform: rotate(180deg);
+}
+
+.curved-divider svg {
+  position: relative;
+  display: block;
+  width: calc(100% + 1.3px);
+  height: 80px;
+}
+
+.curved-divider-top {
+  position: absolute;
+  top: -1px;
+  left: 0;
+  width: 100%;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.curved-divider-top svg {
+  position: relative;
+  display: block;
+  width: calc(100% + 1.3px);
+  height: 80px;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(229, 226, 225, 0.5);
+}
+
+.nav-item {
+  transition: all 0.2s ease;
+}
+
+.nav-item:hover {
+  transform: translateY(-2px);
 }

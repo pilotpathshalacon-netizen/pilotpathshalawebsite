@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../api/client';
 import { Layout } from '../components/Layout';
-import { Lightbulb, AlertCircle, Lock, PlayCircle, CheckCircle2, Navigation } from 'lucide-react';
+import { Lightbulb, AlertCircle, PlayCircle, CheckCircle2, Navigation } from 'lucide-react';
 import { openRazorpayCheckout } from '../utils/razorpay';
 
 const courseTabs = ['ALL', 'PPL', 'CPL', 'ATPL'];
@@ -54,19 +54,72 @@ export const CoursesPage = () => {
 
   const activeEnrollment = useMemo(() => {
     if (!enrollments.length) return null;
+    const hasStarted = (item) =>
+      Number(item?.progress || 0) > 0 || (item?.course?.lessons || []).some((lesson) => Boolean(lesson?.lastViewedAt));
+    const latestActivityTime = (item) => {
+      const lessonTimes = (item?.course?.lessons || [])
+        .map((lesson) => new Date(lesson?.lastViewedAt || 0).getTime())
+        .filter((time) => Number.isFinite(time) && time > 0);
+      return Math.max(new Date(item?.updatedAt || item?.createdAt || 0).getTime(), ...lessonTimes, 0);
+    };
     const sorted = [...enrollments].sort((a, b) => {
-      const ad = new Date(a?.updatedAt || a?.createdAt || 0).getTime();
-      const bd = new Date(b?.updatedAt || b?.createdAt || 0).getTime();
-      return bd - ad;
+      const aStarted = hasStarted(a) ? 1 : 0;
+      const bStarted = hasStarted(b) ? 1 : 0;
+      if (aStarted !== bStarted) return bStarted - aStarted;
+      return latestActivityTime(b) - latestActivityTime(a);
     });
     return sorted[0] || null;
   }, [enrollments]);
 
   const upcomingCourses = useMemo(() => {
-    return courses
-      .filter(course => (activeTab === 'ALL' ? true : (course.level || '').toUpperCase() === activeTab))
-      .filter(course => !enrolledIds.has(Number(course.id)));
-  }, [courses, enrollments, activeTab, enrolledIds]);
+    const activeCourseId = Number(activeEnrollment?.course?.id || activeEnrollment?.courseId || 0);
+    
+    // Helper function to check if a course has been started
+    const hasStarted = (enrollment) => {
+      const progress = Number(enrollment?.progress || 0);
+      const hasViewedLesson = (enrollment?.course?.lessons || []).some((lesson) => Boolean(lesson?.lastViewedAt));
+      return progress > 0 || hasViewedLesson;
+    };
+    
+    // Only show available courses that are not enrolled or haven't been started
+    const availableCourses = courses.filter(course => {
+      const id = Number(course.id);
+      if (id === activeCourseId) return false;
+      // Check if user is enrolled and has started this course
+      const enrollment = enrollments.find(e => Number(e.course?.id || e.courseId) === id);
+      if (enrollment && hasStarted(enrollment)) return false;
+      return Number.isFinite(id) && id > 0;
+    });
+
+    const otherEnrolledCourses = enrollments
+      .filter(e => {
+        const courseId = Number(e.course?.id || e.courseId);
+        // Only include courses that haven't been started
+        return courseId !== activeCourseId && Number.isFinite(courseId) && courseId > 0 && !hasStarted(e);
+      })
+      .map(e => ({
+        ...e.course,
+        id: e.course?.id || e.courseId,
+        isEnrolled: true,
+        isPurchased: false
+      }));
+
+    const allCourses = [...availableCourses, ...otherEnrolledCourses];
+    const uniqueCourses = Array.from(
+      new Map(allCourses.map(c => [Number(c.id), c])).values()
+    );
+
+    const filtered = uniqueCourses.filter(course => {
+      return activeTab === 'ALL' ? true : (course.level || '').toUpperCase() === activeTab;
+    });
+
+    // Sort: enrolled courses first, then non-enrolled courses
+    return filtered.sort((a, b) => {
+      const aEnrolled = enrolledIds.has(Number(a.id)) ? 1 : 0;
+      const bEnrolled = enrolledIds.has(Number(b.id)) ? 1 : 0;
+      return bEnrolled - aEnrolled; // Enrolled (1) comes before non-enrolled (0)
+    });
+  }, [courses, enrollments, activeTab, activeEnrollment]);
 
   const filteredActive = useMemo(() => {
     if (!activeEnrollment) return null;
@@ -93,19 +146,9 @@ export const CoursesPage = () => {
     });
   }, []);
 
-  const getUnlockIndex = useCallback((lessons) => {
-    const firstIncompleteIndex = lessons.findIndex((item) => !item?.isCompleted);
-    return firstIncompleteIndex === -1 ? lessons.length - 1 : firstIncompleteIndex;
-  }, []);
-
   const activeLessons = useMemo(
     () => sortedLessons(filteredActive?.course?.lessons),
     [filteredActive, sortedLessons]
-  );
-
-  const unlockIndex = useMemo(
-    () => getUnlockIndex(activeLessons),
-    [activeLessons, getUnlockIndex]
   );
 
   const lessonIndexById = useMemo(() => {
@@ -293,31 +336,27 @@ export const CoursesPage = () => {
         ) : null}
 
         {hasActive && activeLessons.length ? (
-          <div className="bg-white rounded-2xl border border-border p-6 mb-8">
-            <div className="mb-5">
-              <h2 className="text-2xl font-bold text-primary-900">Upcoming Lessons</h2>
-              <p className="text-tertiary_text mt-1">
-                Complete lessons in order to unlock the next one.
+          <div className="bg-white rounded-xl border border-border p-3 mb-6">
+            <div className="mb-3">
+              <h2 className="text-lg font-semibold text-primary-900 leading-tight">Upcoming Lessons</h2>
+              <p className="text-xs text-tertiary_text mt-1 leading-tight">
+                All lessons are unlocked for this enrolled course.
               </p>
             </div>
 
-            <div className="space-y-5">
+            <div className="space-y-3 max-h-[420px] overflow-y-auto pr-2">
               {lessonsByModule.map((module) => (
                 <div key={module.id}>
-                  <h3 className="text-base font-extrabold text-primary_text mb-3">{module.title}</h3>
-                  <div className="space-y-3">
+                  <h3 className="text-xs font-bold uppercase tracking-wide text-primary_text mb-1">{module.title}</h3>
+                  <div className="space-y-2">
                     {module.lessons.map((item) => {
                       const index = lessonIndexById.get(item.id) ?? 0;
-                      const isLocked = index > unlockIndex;
                       const isCompleted = Boolean(item?.isCompleted);
-                      const isAccessible = !isLocked || isCompleted;
 
                       const icon = isCompleted ? (
-                        <CheckCircle2 size={22} className="text-green-600" />
-                      ) : isLocked ? (
-                        <Lock size={20} className="text-gray-400" />
+                        <CheckCircle2 size={16} className="text-green-600" />
                       ) : (
-                        <PlayCircle size={22} className="text-[#e0a900]" />
+                        <PlayCircle size={16} className="text-[#e0a900]" />
                       );
 
                       return (
@@ -326,27 +365,19 @@ export const CoursesPage = () => {
                           type="button"
                           onClick={() => {
                             if (!filteredActive) return;
-                            if (!isAccessible) {
-                              alert('Complete the previous lesson to unlock this one.');
-                              return;
-                            }
                             navigate(
                               `/courses/${filteredActive?.course?.id || filteredActive?.courseId}/lessons/${item.id}`
                             );
                           }}
-                          className={`w-full rounded-2xl border px-4 py-4 text-left transition-colors ${
-                            isLocked
-                              ? 'border-gray-200 bg-gray-50'
-                              : 'border-border bg-white hover:bg-gray-50'
-                          }`}
+                          className="w-full rounded-xl border border-border bg-white px-2 py-2 text-left transition-colors hover:bg-gray-50"
                         >
-                          <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center justify-between gap-2">
                             <div className="min-w-0 flex-1">
-                              <p className={`truncate text-xl font-bold ${isLocked ? 'text-gray-500' : 'text-primary_text'}`}>
+                              <p className="truncate text-base font-medium text-primary_text">
                                 {index + 1}. {item.title || 'Lesson'}
                               </p>
-                              <p className={`mt-1 truncate text-base ${isLocked ? 'text-gray-400' : 'text-tertiary_text'}`}>
-                                {item.subtitle || (isCompleted ? 'Completed' : isLocked ? 'Locked' : 'Ready to start')}
+                              <p className="mt-1 truncate text-[11px] text-tertiary_text">
+                                {item.subtitle || (isCompleted ? 'Completed' : 'Ready to start')}
                               </p>
                             </div>
                             <div className="shrink-0">{icon}</div>
@@ -373,40 +404,69 @@ export const CoursesPage = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {upcomingCourses.map(course => (
-                <div key={course.id} className="bg-white rounded-lg border border-border overflow-hidden hover:shadow-lg transition-shadow">
-                  {course.thumbnail && (
-                    <div className="h-40 bg-gradient-to-br from-primary-900 to-accent overflow-hidden">
-                      <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
-                    </div>
-                  )}
-                  
-                  <div className="p-6">
-                    <p className="text-accent font-semibold text-sm mb-2">{course.level || 'COURSE'}</p>
-                    <h3 className="text-lg font-bold text-primary_text mb-2">{course.title}</h3>
-                    <p className="text-secondary_text text-sm mb-4">{course.description}</p>
+              {upcomingCourses.map(course => {
+                const courseId = Number(course.id);
+                const isEnrolled = enrolledIds.has(courseId);
+                const enrollment = enrollments.find(e => Number(e.courseId || e.course?.id) === courseId);
+                const progress = enrollment ? Math.round(Number(enrollment.progress || 0)) : 0;
+                
+                return (
+                  <div key={course.id} className="relative bg-white rounded-lg border border-border overflow-hidden hover:shadow-lg transition-shadow">
+                    {isEnrolled && (
+                      <div className="absolute top-3 right-3 bg-green-600 text-white px-3 py-1 rounded-full text-xs font-semibold z-10">
+                        Enrolled
+                      </div>
+                    )}
+                    {course.thumbnail && (
+                      <div className="h-40 bg-gradient-to-br from-primary-900 to-accent overflow-hidden">
+                        <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
+                      </div>
+                    )}
                     
-                    <div className="text-tertiary_text text-sm mb-6">
-                      <p>• {course.lessons?.length || 0} lessons</p>
-                      <p>• {course.lessons?.reduce((sum, l) => sum + (l.durationMinutes || 0), 0) || 0} minutes</p>
-                    </div>
+                    <div className="p-6">
+                      <p className="text-accent font-semibold text-sm mb-2">{course.level || 'COURSE'}</p>
+                      <h3 className="text-lg font-bold text-primary_text mb-2">{course.title}</h3>
+                      <p className="text-secondary_text text-sm mb-4">{course.description}</p>
+                      
+                      <div className="text-tertiary_text text-sm mb-6">
+                        <p>• {course.lessons?.length || 0} lessons</p>
+                        <p>• {course.lessons?.reduce((sum, l) => sum + (l.durationMinutes || 0), 0) || 0} minutes</p>
+                        {isEnrolled && <p>• Progress: {progress}%</p>}
+                      </div>
 
-                    <button
-                      onClick={() => handleEnroll(course)}
-                      disabled={enrollingCourseId === course.id}
-                      className="w-full bg-primary-900 text-white py-2 rounded-lg font-semibold hover:bg-primary-900/90 disabled:opacity-50 transition-colors"
-                    >
-                      {enrollingCourseId === course.id
-                        ? Number(course.priceAmount || 0) > 0 && !course.isPurchased
-                          ? 'Processing...'
-                          : 'Enrolling...'
-                        : Number(course.priceAmount || 0) > 0 && !course.isPurchased
-                          ? 'Buy Course'
-                          : 'Enroll Now'}
-                    </button>
+                      {!isEnrolled && (
+                        <p className="text-xl font-bold text-primary-900 mb-4">
+                          {Number(course.priceAmount || 0) > 0 ? `${course.currency || 'INR'} ${course.priceAmount}` : 'Free'}
+                        </p>
+                      )}
+
+                      <button
+                        onClick={() => {
+                          if (isEnrolled) {
+                            goToEnrolledCourse(enrollment);
+                          } else {
+                            handleEnroll(course);
+                          }
+                        }}
+                        disabled={enrollingCourseId === course.id}
+                        className="w-full bg-primary-900 text-white py-2 rounded-lg font-semibold hover:bg-primary-900/90 disabled:opacity-50 transition-colors"
+                      >
+                        {enrollingCourseId === course.id
+                          ? isEnrolled
+                            ? 'Opening...'
+                            : Number(course.priceAmount || 0) > 0 && !course.isPurchased
+                              ? 'Processing...'
+                              : 'Enrolling...'
+                          : isEnrolled
+                            ? progress > 0 ? 'Continue Learning' : 'Start Course'
+                            : Number(course.priceAmount || 0) > 0 && !course.isPurchased
+                              ? 'Buy Course'
+                              : 'Enroll Now'}
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
