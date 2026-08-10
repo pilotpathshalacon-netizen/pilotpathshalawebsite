@@ -10,6 +10,43 @@ body {
   @apply bg-surface text-on-surface;
 }
 
+.lesson-markdown {
+  color: #4b5563;
+  font-size: 1rem;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+.lesson-markdown > :first-child { margin-top: 0; }
+.lesson-markdown > :last-child { margin-bottom: 0; }
+.lesson-markdown h1,
+.lesson-markdown h2,
+.lesson-markdown h3,
+.lesson-markdown h4 {
+  margin: 1.5em 0 0.6em;
+  color: #171717;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.lesson-markdown h1 { font-size: 1.875rem; }
+.lesson-markdown h2 { font-size: 1.5rem; }
+.lesson-markdown h3 { font-size: 1.25rem; }
+.lesson-markdown h4 { font-size: 1.125rem; }
+.lesson-markdown p { margin: 0.75em 0; }
+.lesson-markdown ul,
+.lesson-markdown ol { margin: 0.75em 0; padding-left: 1.6em; }
+.lesson-markdown ul { list-style: disc; }
+.lesson-markdown ol { list-style: decimal; }
+.lesson-markdown li { margin: 0.3em 0; }
+.lesson-markdown hr { margin: 1.75em 0; border: 0; border-top: 1px solid #d1d5db; }
+.lesson-markdown table { width: 100%; margin: 1em 0; border-collapse: collapse; display: block; overflow-x: auto; }
+.lesson-markdown th,
+.lesson-markdown td { padding: 0.65em 0.8em; border: 1px solid #d1d5db; text-align: left; vertical-align: top; }
+.lesson-markdown th { background: #f3f4f6; color: #171717; font-weight: 700; }
+.lesson-markdown blockquote { margin: 1em 0; padding-left: 1em; border-left: 4px solid #e1c24f; color: #6b7280; }
+.lesson-markdown a { color: #2563eb; text-decoration: underline; }
+.lesson-markdown code { border-radius: 0.25rem; background: #f3f4f6; padding: 0.1em 0.3em; }
+
 html {
   scroll-behavior: smooth;
 }

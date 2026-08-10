@@ -1,9 +1,20 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Bookmark, BookmarkCheck, CheckCircle2, Expand, FileText, Shrink } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../api/client';
 import { Layout } from '../components/Layout';
+
+const toMarkdownDocument = (value) => {
+  const entries = Array.isArray(value) ? value.map((item) => String(item || '')).filter(Boolean) : [];
+  if (!entries.length) return '';
+  if (entries.length === 1) return entries[0];
+
+  const containsMarkdown = entries.some((line) => /^(#{1,6}\s|[-*+]\s|\d+\.\s|---+$|\|)/.test(line.trim()));
+  return containsMarkdown ? entries.join('\n') : entries.map((line) => `- ${line}`).join('\n');
+};
 
 const normalizeHttpUrl = (value) => {
   const raw = String(value || '').trim();
@@ -367,6 +378,8 @@ export const LessonDetailPage = () => {
 
   const notes = useMemo(() => (Array.isArray(lesson?.notes) ? lesson.notes : []), [lesson]);
   const takeaways = useMemo(() => (Array.isArray(lesson?.takeaways) ? lesson.takeaways : []), [lesson]);
+  const notesMarkdown = useMemo(() => toMarkdownDocument(notes), [notes]);
+  const takeawaysMarkdown = useMemo(() => toMarkdownDocument(takeaways), [takeaways]);
   const videos = useMemo(() => (Array.isArray(lesson?.videos) ? lesson.videos : []), [lesson]);
   const activeVideo = useMemo(() => videos[activeVideoIndex] || null, [videos, activeVideoIndex]);
   const activeVideoUrl = activeVideo?.videoUrl || lesson?.videoUrl || '';
@@ -682,22 +695,26 @@ export const LessonDetailPage = () => {
             {activeTab === 'Notes' ? (
               <div className="rounded-lg border border-border bg-white p-6">
                 <h2 className="mb-4 text-xl font-bold text-primary-900">Lesson Notes</h2>
-                {(notes.length ? notes : ['No notes available yet.']).map((item, index) => (
-                  <p key={`${item}-${index}`} className="mb-3 text-secondary_text">
-                    • {item}
-                  </p>
-                ))}
+                {notesMarkdown ? (
+                  <div className="lesson-markdown">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{notesMarkdown}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <p className="text-secondary_text">No notes available yet.</p>
+                )}
               </div>
             ) : null}
 
             {activeTab === 'Takeaways' ? (
               <div className="rounded-lg border border-border bg-white p-6">
                 <h2 className="mb-4 text-xl font-bold text-primary-900">Key Takeaways</h2>
-                {(takeaways.length ? takeaways : ['No takeaways available yet.']).map((item, index) => (
-                  <p key={`${item}-${index}`} className="mb-3 text-secondary_text">
-                    • {item}
-                  </p>
-                ))}
+                {takeawaysMarkdown ? (
+                  <div className="lesson-markdown">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{takeawaysMarkdown}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <p className="text-secondary_text">No takeaways available yet.</p>
+                )}
               </div>
             ) : null}
 
