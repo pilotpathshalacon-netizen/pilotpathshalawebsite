@@ -85,6 +85,9 @@ export const LessonDetailPage = () => {
   const [myNotes, setMyNotes] = useState([]);
   const [saving, setSaving] = useState(false);
   const [activeVideoIndex, setActiveVideoIndex] = useState(0);
+  const [activeAttachment, setActiveAttachment] = useState(null);
+  const [attachmentObjectUrl, setAttachmentObjectUrl] = useState('');
+  const [attachmentViewerHtml, setAttachmentViewerHtml] = useState('');
   const [isVideoExpanded, setIsVideoExpanded] = useState(false);
   const [watermarkTime, setWatermarkTime] = useState(() => formatWatermarkTime(new Date()));
   const [testMode, setTestMode] = useState('practice');
@@ -97,6 +100,36 @@ export const LessonDetailPage = () => {
   const [lessonTimerSeconds, setLessonTimerSeconds] = useState(null);
   const [lessonCompleted, setLessonCompleted] = useState(false);
   const [lessonSubmitting, setLessonSubmitting] = useState(false);
+
+  useEffect(() => () => {
+    if (attachmentObjectUrl) URL.revokeObjectURL(attachmentObjectUrl);
+  }, [attachmentObjectUrl]);
+
+  const viewAttachment = async (attachment) => {
+    try {
+      if (attachment.mimeType === 'application/pdf') {
+        const html = await apiClient.getLessonAttachmentViewer(courseId, lessonId, attachment.id, token);
+        if (attachmentObjectUrl) URL.revokeObjectURL(attachmentObjectUrl);
+        setAttachmentObjectUrl('');
+        setAttachmentViewerHtml(html);
+        setActiveAttachment(attachment);
+        return;
+      }
+      const blob = await apiClient.getLessonAttachment(courseId, lessonId, attachment.id, token);
+      if (attachmentObjectUrl) URL.revokeObjectURL(attachmentObjectUrl);
+      setAttachmentObjectUrl(URL.createObjectURL(blob));
+      setAttachmentViewerHtml('');
+      setActiveAttachment(attachment);
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+  const closeAttachmentViewer = () => {
+    if (attachmentObjectUrl) URL.revokeObjectURL(attachmentObjectUrl);
+    setAttachmentObjectUrl('');
+    setAttachmentViewerHtml('');
+    setActiveAttachment(null);
+  };
   const [lessonSelectedAnswers, setLessonSelectedAnswers] = useState({});
   const [lessonEvaluations, setLessonEvaluations] = useState({});
   const [lessonResultData, setLessonResultData] = useState(null);
@@ -611,7 +644,7 @@ export const LessonDetailPage = () => {
 
         <div className="mb-6 rounded-xl border border-border bg-white/90 p-2 shadow-sm">
           <div className="flex gap-2 overflow-x-auto pb-1">
-            {['Video', 'Notes', 'Takeaways', 'My Notes', 'Test'].map((tab) => {
+            {['Video', 'Files', 'Notes', 'Takeaways', 'My Notes', 'Test'].map((tab) => {
               const isActive = activeTab === tab;
               return (
                 <button
@@ -689,6 +722,52 @@ export const LessonDetailPage = () => {
                   <h3 className="text-3xl font-bold text-primary_text">{lessonDisplayTitle}</h3>
                   <p className="mt-3 text-xl leading-9 text-secondary_text">{lessonSummary}</p>
                 </div>
+              </div>
+            ) : null}
+
+            {activeTab === 'Files' ? (
+              <div className="rounded-xl border border-border bg-white p-5">
+                <div className="mb-3 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#fff4c2] text-[#9a7300]"><FileText size={20} /></div>
+                  <div>
+                    <h3 className="text-xl font-bold">Lesson resources</h3>
+                    <p className="text-sm text-tertiary_text">Select a file to open it</p>
+                  </div>
+                </div>
+                <div className="divide-y divide-gray-200 border-y border-gray-200">
+                  {(lesson.attachments || []).map((file) => (
+                    <button key={file.id} onClick={() => viewAttachment(file)} className="group flex w-full items-center gap-3 px-1 py-4 text-left transition-colors hover:bg-gray-50 sm:px-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-secondary_text"><FileText size={19} /></span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-semibold text-primary_text">{file.fileName}</span>
+                        <span className="text-xs uppercase tracking-wide text-tertiary_text">{file.fileName.split('.').pop()} · {Math.ceil(file.fileSize / 1024)} KB</span>
+                      </span>
+                      <span className="text-xl text-gray-400 transition-transform group-hover:translate-x-0.5">›</span>
+                    </button>
+                  ))}
+                </div>
+                {(lesson.attachments || []).length === 0 ? <p className="text-tertiary_text">No lesson files available.</p> : null}
+                {activeAttachment && (attachmentObjectUrl || attachmentViewerHtml) ? (
+                  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-3 sm:p-6" onMouseDown={(e) => e.target === e.currentTarget && closeAttachmentViewer()}>
+                    <div className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-label={activeAttachment.fileName} onContextMenu={(e) => e.preventDefault()}>
+                      <div className="flex items-center justify-between gap-4 border-b px-4 py-3 sm:px-5">
+                        <div className="min-w-0">
+                          <p className="truncate font-bold text-primary_text">{activeAttachment.fileName}</p>
+                        </div>
+                        <button type="button" onClick={closeAttachmentViewer} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-2xl leading-none hover:bg-gray-100" aria-label="Close file viewer">×</button>
+                      </div>
+                      <div className="min-h-0 flex-1 overflow-auto bg-gray-100">
+                        {activeAttachment.mimeType === 'application/pdf' ? (
+                          <iframe title={activeAttachment.fileName} srcDoc={attachmentViewerHtml} className="h-full w-full" sandbox="allow-scripts" />
+                        ) : activeAttachment.mimeType.startsWith('image/') ? (
+                          <div className="flex min-h-full items-center justify-center p-4"><img src={attachmentObjectUrl} alt={activeAttachment.fileName} className="max-h-full max-w-full select-none" draggable="false" /></div>
+                        ) : (
+                          <iframe title={activeAttachment.fileName} src={attachmentObjectUrl} className="h-full w-full" sandbox="allow-same-origin" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ) : null}
 

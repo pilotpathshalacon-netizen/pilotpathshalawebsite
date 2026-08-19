@@ -1,5 +1,5 @@
-const API_URL = import.meta.env.VITE_API_URL || 'https://api.pilotpathshala.com/api';
-// const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002/api';
+// const API_URL = import.meta.env.VITE_API_URL || 'https://api.pilotpathshala.com/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002/api';
 
 
 const buildHeaders = (token) => {
@@ -47,6 +47,20 @@ export const apiClient = {
   enroll: (courseId, token) => request({ endpoint: `/courses/${courseId}/enroll`, method: 'POST', token }),
   getMyEnrollments: (token) => request({ endpoint: '/courses/me/enrollments', token }),
   getLessonDetail: (courseId, lessonId, token) => request({ endpoint: `/courses/${courseId}/lessons/${lessonId}`, token }),
+  getLessonAttachment: async (courseId, lessonId, attachmentId, token) => {
+    const response = await fetch(`${API_URL}/courses/${courseId}/lessons/${lessonId}/attachments/${attachmentId}/view`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!response.ok) throw new Error('Unable to open lesson file');
+    return response.blob();
+  },
+  getLessonAttachmentViewer: async (courseId, lessonId, attachmentId, token) => {
+    const response = await fetch(`${API_URL}/courses/${courseId}/lessons/${lessonId}/attachments/${attachmentId}/view?viewer=1`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!response.ok) throw new Error('Unable to open lesson file');
+    return response.text();
+  },
   updateLessonProgress: (courseId, lessonId, payload, token) =>
     request({ endpoint: `/courses/${courseId}/lessons/${lessonId}/progress`, method: 'PUT', body: payload, token }),
 
